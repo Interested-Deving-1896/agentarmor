@@ -12,16 +12,16 @@ Every existing security tool is a **point solution** — output validators, prom
 
 ## The 8 Security Layers
 
-| Layer | Name | What It Protects |
-|-------|------|-----------------|
-| L1 | **Ingestion** | Input scanning, prompt injection detection, source verification |
-| L2 | **Storage** | Encryption at rest (AES-256-GCM), data classification, integrity (BLAKE3) |
-| L3 | **Context** | Instruction-data separation, canary tokens, prompt hardening |
-| L4 | **Planning** | Action plan validation, risk scoring, chain depth limits |
-| L5 | **Execution** | Rate limiting, network egress control, human approval gates |
-| L6 | **Output** | PII redaction (Presidio), DLP, sensitivity filtering |
-| L7 | **Inter-Agent** | Mutual auth (HMAC), trust scoring, delegation depth control |
-| L8 | **Identity** | Agent identity, JIT permissions, credential rotation |
+| Layer | Name            | What It Protects                                                          |
+| ----- | --------------- | ------------------------------------------------------------------------- |
+| L1    | **Ingestion**   | Input scanning, prompt injection detection, source verification           |
+| L2    | **Storage**     | Encryption at rest (AES-256-GCM), data classification, integrity (BLAKE3) |
+| L3    | **Context**     | Instruction-data separation, canary tokens, prompt hardening              |
+| L4    | **Planning**    | Action plan validation, risk scoring, chain depth limits                  |
+| L5    | **Execution**   | Rate limiting, network egress control, human approval gates               |
+| L6    | **Output**      | PII redaction (Presidio), DLP, sensitivity filtering                      |
+| L7    | **Inter-Agent** | Mutual auth (HMAC), trust scoring, delegation depth control               |
+| L8    | **Identity**    | Agent identity, JIT permissions, credential rotation                      |
 
 ## Quick Start
 
@@ -29,13 +29,13 @@ Every existing security tool is a **point solution** — output validators, prom
 
 ```bash
 # Using uv (recommended)
-uv add agentarmor
+uv add agentarmor-core
 
 # With all optional features
-uv add "agentarmor[all]"
+uv add "agentarmor-core[all]"
 
 # For development
-git clone https://github.com/agastyatodi/agentarmor.git
+git clone https://github.com/Agastya910/agentarmor.git
 cd agentarmor
 uv sync --all-extras --dev
 ```
@@ -119,13 +119,13 @@ suite.print_report(results)
 
 ## CLI Commands
 
-| Command | Description |
-|---------|-------------|
-| `agentarmor init` | Generate a config file |
-| `agentarmor validate <config>` | Validate configuration |
-| `agentarmor scan -t "text"` | Scan text for threats |
-| `agentarmor serve` | Start proxy server |
-| `agentarmor keygen` | Generate encryption key |
+| Command                        | Description             |
+| ------------------------------ | ----------------------- |
+| `agentarmor init`              | Generate a config file  |
+| `agentarmor validate <config>` | Validate configuration  |
+| `agentarmor scan -t "text"`    | Scan text for threats   |
+| `agentarmor serve`             | Start proxy server      |
+| `agentarmor keygen`            | Generate encryption key |
 
 ## Custom Security Policies
 
@@ -188,18 +188,18 @@ Agent Runtime (LangChain / CrewAI / OpenAI SDK / MCP)
 
 ## OWASP ASI Coverage
 
-| OWASP ASI Risk | AgentArmor Layer(s) |
-|---------------|-------------------|
-| ASI01: Goal Hijacking | L1 (injection), L3 (prompt hardening) |
-| ASI02: Tool Misuse | L4 (planning), L5 (execution), Policy Engine |
-| ASI03: Identity Abuse | L8 (identity), L5 (JIT perms) |
-| ASI04: Supply Chain | L1 (source verify), MCP Guard |
-| ASI05: Code Execution | L5 (sandbox), L4 (risk scoring) |
-| ASI06: Memory Poisoning | L2 (integrity), L3 (canary tokens) |
-| ASI07: Inter-Agent | L7 (mutual auth, trust scoring) |
-| ASI08: Cascading Failures | L4 (chain depth), L5 (rate limits) |
-| ASI09: Human Trust | L6 (output filter), Audit Logger |
-| ASI10: Rogue Agents | L8 (credential rotation), L7 (trust decay) |
+| OWASP ASI Risk            | AgentArmor Layer(s)                          |
+| ------------------------- | -------------------------------------------- |
+| ASI01: Goal Hijacking     | L1 (injection), L3 (prompt hardening)        |
+| ASI02: Tool Misuse        | L4 (planning), L5 (execution), Policy Engine |
+| ASI03: Identity Abuse     | L8 (identity), L5 (JIT perms)                |
+| ASI04: Supply Chain       | L1 (source verify), MCP Guard                |
+| ASI05: Code Execution     | L5 (sandbox), L4 (risk scoring)              |
+| ASI06: Memory Poisoning   | L2 (integrity), L3 (canary tokens)           |
+| ASI07: Inter-Agent        | L7 (mutual auth, trust scoring)              |
+| ASI08: Cascading Failures | L4 (chain depth), L5 (rate limits)           |
+| ASI09: Human Trust        | L6 (output filter), Audit Logger             |
+| ASI10: Rogue Agents       | L8 (credential rotation), L7 (trust decay)   |
 
 ## License
 

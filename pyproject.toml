@@ -1,5 +1,5 @@
 [project]
-name = "agentarmor"
+name = "agentarmor-core"
 version = "0.1.0"
 description = "Comprehensive security framework for agentic AI applications — 8-layer defense-in-depth."
 readme = "README.md"
