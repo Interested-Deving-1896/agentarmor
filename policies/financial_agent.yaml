@@ -1,0 +1,57 @@
+# AgentArmor Financial Agent Policy
+# High-security policy for financial/payment agents
+
+version: "1.0"
+name: "financial_agent"
+description: "High-security policy for financial and payment agents"
+agent_type: "financial"
+risk_level: "high"
+
+global_denied_actions:
+  - "shell.*"
+  - "exec.*"
+  - "os.*"
+  - "admin.*"
+  - "delete_account"
+  - "modify_permissions"
+
+global_allowed_actions:
+  - "read.*"
+  - "list.*"
+  - "search.*"
+  - "transfer.*"
+  - "balance.*"
+  - "transaction.*"
+
+require_human_approval_for:
+  - "transfer.*"
+
+max_chain_depth: 5
+
+rules:
+  - name: "limit_transfer_amount"
+    description: "Require approval for transfers over $1000"
+    action_pattern: "transfer.*"
+    conditions:
+      - field: "params.amount"
+        operator: ">"
+        value: "1000"
+    verdict: "escalate"
+    priority: 100
+
+  - name: "block_bulk_transfers"
+    description: "Block more than 5 transfers in a session"
+    action_pattern: "transfer.*"
+    conditions:
+      - field: "context.transfer_count"
+        operator: ">"
+        value: "5"
+    verdict: "deny"
+    priority: 95
+
+  - name: "audit_all_reads"
+    description: "Audit all data reads for compliance"
+    action_pattern: "read.*"
+    conditions: []
+    verdict: "audit"
+    priority: 10

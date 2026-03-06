@@ -1,0 +1,51 @@
+# AgentArmor Default Policy
+# Secure defaults for general-purpose agents
+
+version: "1.0"
+name: "default"
+description: "Secure defaults for general-purpose agents"
+agent_type: "general"
+risk_level: "medium"
+
+global_denied_actions:
+  - "shell.*"
+  - "exec.*"
+  - "os.*"
+  - "subprocess.*"
+  - "eval"
+  - "admin.*"
+
+require_human_approval_for:
+  - "delete.*"
+  - "transfer.*"
+  - "publish.*"
+
+max_chain_depth: 10
+
+rules:
+  - name: "block_destructive_db_ops"
+    description: "Block DROP/TRUNCATE on any database"
+    action_pattern: "database.*"
+    conditions:
+      - field: "params.query"
+        operator: "matches"
+        value: "(DROP|TRUNCATE|ALTER)\\s+"
+    verdict: "deny"
+    priority: 100
+
+  - name: "limit_file_access"
+    description: "Block access to system files"
+    action_pattern: "file.*"
+    conditions:
+      - field: "params.path"
+        operator: "matches"
+        value: "^/(etc|var|usr|sys|proc)"
+    verdict: "deny"
+    priority: 90
+
+  - name: "restrict_external_network"
+    description: "Audit all external network requests"
+    action_pattern: "http.*"
+    conditions: []
+    verdict: "audit"
+    priority: 50

@@ -1,0 +1,58 @@
+# AgentArmor Configuration
+# See docs/quickstart.md for details
+
+version: "1.0"
+agent_type: "general"
+risk_level: "medium"
+
+ingestion:
+  enabled: true
+  scan_for_injection: true
+  max_input_size_bytes: 10485760
+
+storage:
+  enabled: true
+  encryption: "aes-256-gcm"
+  encryption_key_env: "AGENTARMOR_ENCRYPTION_KEY"
+  integrity_check: true
+
+context:
+  enabled: true
+  enforce_instruction_separation: true
+  max_context_tokens: 128000
+  prompt_hardening: true
+  canary_tokens: true
+
+planning:
+  enabled: true
+  max_chain_depth: 10
+  require_plan_validation: true
+
+execution:
+  enabled: true
+  sandbox_enabled: true
+  network_egress_allowed: false
+  rate_limits:
+    "*": 100
+
+output:
+  enabled: true
+  pii_redaction: true
+  sensitivity_filtering: true
+
+interagent:
+  enabled: true
+  require_mutual_auth: true
+  trust_scoring: true
+  min_trust_score: 0.7
+  max_delegation_depth: 3
+
+identity:
+  enabled: true
+  credential_ttl_seconds: 3600
+  jit_permissions: true
+
+audit:
+  enabled: true
+  log_all_events: true
+  tamper_proof: true
