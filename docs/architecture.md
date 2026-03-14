@@ -176,3 +176,14 @@ Tamper-proof logging of every security event.
 - **New integration**: add to `integrations/` — see `integrations/langchain/` as reference
 - **New red team test**: add `TestCase` to `redteam/suite.py`
 - **Custom PII entities**: register with `presidio_analyzer` in `layers/output/filter.py`
+
+### Built-in Integrations (v0.2.0)
+
+| Integration | Module | Purpose |
+|-------------|--------|---------|
+| **OpenClaw Guard** | `integrations/openclaw/` | Encrypt agent identity files (SOUL.md, MEMORY.md, etc.) |
+| **MCP Scanner** | `integrations/mcp/guard.py` | Scan MCP servers for dangerous tools and rug-pulls |
+| **LangChain** | `integrations/langchain/` | Callback-based tool call interception |
+| **OpenAI** | `integrations/openai/` | Secure client wrapper for OpenAI API |
+
+See [integrations.md](integrations.md) for full usage documentation.

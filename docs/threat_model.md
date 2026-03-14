@@ -50,6 +50,7 @@ Attackers exploit agent credentials or escalate permissions beyond their intende
 | Attack Vector | Example | AgentArmor Defense | Layer |
 |--------------|---------|-------------------|-------|
 | Credential theft | Reads `SOUL.md` / `identity.md` plaintext files | Encrypted identity store, no plaintext credentials | L8 |
+| Host-level identity theft | Malware on host reads OpenClaw SOUL.md/MEMORY.md | **OpenClaw Guard**: AES-256-GCM encryption of identity files | OpenClaw Guard |
 | Permission escalation | Agent attempts action outside its permission set | JIT permission check, deny if not in allowed set | L8 |
 | Token replay | Reuses expired credential token | TTL-based token expiry (default: 3600s) | L8 |
 | Confused deputy | Agent acts on behalf of another agent without auth | Delegation chain requires L7 mutual auth | L7+L8 |
@@ -72,9 +73,10 @@ Malicious tools, poisoned MCP servers, or compromised packages injected into the
 
 | Attack Vector | Example | AgentArmor Defense | Layer |
 |--------------|---------|-------------------|-------|
-| MCP rug pull | Server advertises safe tools, swaps to malicious ones | MCP server tool manifest validation | MCP Guard |
-| Unencrypted MCP transport | HTTP instead of HTTPS | Transport security check (HTTP → flag) | MCP Guard |
-| Dangerous tool detection | MCP server exposes `exec_command` | Tool name/description risk scoring | MCP Guard |
+| MCP rug pull | Server advertises safe tools, swaps to malicious ones | **Rug-pull detection**: description says "safe" but name says "exec" | MCP Scanner |
+| Unencrypted MCP transport | HTTP instead of HTTPS | `scan_server()` transport security check (HTTP → HIGH risk) | MCP Scanner |
+| Dangerous tool detection | MCP server exposes `exec_command` | Tool name regex scoring (CRITICAL/HIGH/MEDIUM) | MCP Scanner |
+| Missing auth | MCP server has no authentication | Auth heuristic detection (token/key/auth in URL) | MCP Scanner |
 | Poisoned npm/pip package | Package calls home on import | Network egress blocking (disabled by default) | L5 |
 
 ---

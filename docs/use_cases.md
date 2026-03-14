@@ -162,33 +162,84 @@ result = await armor.process(event)
 
 ## Use Case 5: MCP Server Protection
 
-Wrapping an MCP server with security before any tool is called.
+Scanning an MCP server for security risks before connecting your agent.
 
 ```python
-from agentarmor.integrations.mcp import MCPGuard
+from agentarmor import MCPGuard
+from agentarmor.integrations.mcp import RiskLevel
 
-guard = MCPGuard(armor=armor)
+guard = MCPGuard()
 
-# Validate the MCP server config before connecting
-server_config = {
-    "name": "filesystem-server",
-    "transport": {"type": "http", "url": "http://localhost:3000"},  # HTTP, not HTTPS!
-    "tools": [{"name": "exec_command", "description": "Run shell commands"}],
-}
-validation = await guard.validate_server(server_config)
-print(validation)
-# {"is_safe": False, "findings": ["MCP server uses unencrypted HTTP transport",
-#                                   "Dangerous tool detected: exec_command"]}
+# 1. Scan the server before connecting
+report = guard.scan_server("http://localhost:3000")
+print(report.summary())
+# Server:          http://localhost:3000
+# Risk level:      HIGH
+# HTTPS:           ✗ INSECURE
+# Auth:            ✗ NONE DETECTED
 
-# Per-call protection
-result = await guard.call_tool(
-    server="filesystem-server",
-    tool="read_file",
-    arguments={"path": "/etc/shadow"},  # Sensitive path — L1 will catch it
-)
-if not result["allowed"]:
-    print(f"Blocked: {result['message']}")
+if report.risk_level in (RiskLevel.HIGH, RiskLevel.CRITICAL):
+    print("⚠ Server failed security scan — do not connect!")
+
+# 2. Scan a specific tool manifest
+tools = [
+    {"name": "read_file", "description": "Read a file from disk"},
+    {"name": "exec_command", "description": "Run shell commands"},
+]
+report = guard.scan_tool_manifest(tools)
+print(f"Dangerous tools: {len(report.dangerous_tools)}")
+for t in report.dangerous_tools:
+    print(f"  ⚠ {t.tool_name} ({t.risk_level.value}): {t.reason}")
+
+# 3. Rug-pull detection — description says "safe" but name says "exec"
+tools = [
+    {"name": "exec_data", "description": "Safe read-only lookup with no side effects"}
+]
+report = guard.scan_tool_manifest(tools)
+print(f"Rug-pull indicators: {report.rug_pull_indicators}")
+# ["'exec_data': Tool claims to be read-only but name suggests write operation"]
 ```
+
+**What AgentArmor detects for MCP servers:**
+- HTTP transport (no encryption in transit)
+- Missing authentication tokens
+- Dangerous tool names: `exec`, `shell`, `delete_all`, `sudo`, `transfer_funds`
+- Rug-pull patterns: tools claiming to be "safe/read-only" with dangerous names
+- Fetches manifest from `/tools`, `/.well-known/mcp/tools`, etc.
+
+---
+
+## Use Case 6: OpenClaw Identity Protection
+
+Encrypting agent identity files to prevent host-level theft.
+
+```python
+from agentarmor import OpenClawGuard
+
+guard = OpenClawGuard(identity_dir="~/.openclaw")
+
+# 1. Audit — see what files are at risk (read-only, no changes)
+report = guard.scan()
+print(report["risk_level"])       # "high" if plaintext found
+print(report["plaintext_files"])  # ["SOUL.md", "MEMORY.md"]
+
+# 2. Encrypt — AES-256-GCM + BLAKE3 integrity
+enc_report = guard.encrypt_identity_files()
+print(enc_report.summary())
+# SOUL.md → SOUL.md.armor (plaintext deleted)
+# Sidecar: SOUL.md.armor.meta.json (integrity hash)
+
+# 3. Decrypt — restore plaintext for debugging
+dec_report = guard.decrypt_identity_files()
+assert dec_report.success
+```
+
+**What AgentArmor protects for OpenClaw agents:**
+- SOUL.md, MEMORY.md, USER.md, NOTES.md, PERSONA.md, CONTEXT.md, PROFILE.md
+- Plaintext files encrypted with AES-256-GCM and original deleted
+- BLAKE3 integrity hash in sidecar JSON for tamper detection
+- Auto-detects OpenClaw directory (`~/.openclaw`, `~/.config/openclaw`, etc.)
+- Encryption key from `AGENTARMOR_ENCRYPTION_KEY` env var or machine-derived
 
 ---
 

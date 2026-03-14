@@ -14,6 +14,8 @@ from agentarmor.layers.interagent.trust import InterAgentLayer, TrustScorer
 from agentarmor.layers.identity.manager import IdentityLayer
 from agentarmor.policy.engine import PolicyEngine, SecurityPolicy
 from agentarmor.audit.logger import TamperProofLog
+from agentarmor.integrations.openclaw import OpenClawGuard
+from agentarmor.integrations.mcp import MCPGuard
 
 
 # ============================================================

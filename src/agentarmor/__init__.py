@@ -1,26 +1,28 @@
 """AgentArmor — Comprehensive security framework for agentic AI applications."""
 
-from agentarmor.core.types import (
-    SecurityVerdict,
-    ThreatLevel,
-    DataClassification,
-    ActionCategory,
-    AgentEvent,
-    LayerResult,
-    PipelineResult,
-)
 from agentarmor.core.config import ArmorConfig
 from agentarmor.core.exceptions import (
     AgentArmorError,
-    PolicyViolationError,
-    EncryptionError,
     AuthenticationError,
+    EncryptionError,
+    PolicyViolationError,
     RateLimitError,
 )
+from agentarmor.core.types import (
+    ActionCategory,
+    AgentEvent,
+    DataClassification,
+    LayerResult,
+    PipelineResult,
+    SecurityVerdict,
+    ThreatLevel,
+)
+from agentarmor.integrations.mcp import MCPGuard, MCPScanReport
+from agentarmor.integrations.openclaw import OpenClawGuard
 from agentarmor.pipeline import AgentArmor
 from agentarmor.policy.engine import PolicyEngine, SecurityPolicy
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "AgentArmor",
@@ -39,4 +41,7 @@ __all__ = [
     "EncryptionError",
     "AuthenticationError",
     "RateLimitError",
+    "OpenClawGuard",
+    "MCPGuard",
+    "MCPScanReport",
 ]

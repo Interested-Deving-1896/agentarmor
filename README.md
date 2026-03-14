@@ -1,8 +1,22 @@
 # 🛡️ AgentArmor
 
+[![PyPI version](https://img.shields.io/pypi/v/agentarmor-core)](https://pypi.org/project/agentarmor-core/)
+[![Python](https://img.shields.io/pypi/pyversions/agentarmor-core)](https://pypi.org/project/agentarmor-core/)
+[![License](https://img.shields.io/github/license/Agastya910/agentarmor)](https://github.com/Agastya910/agentarmor/blob/main/LICENSE)
+[![Tests](https://img.shields.io/github/actions/workflow/status/Agastya910/agentarmor/ci.yml?label=tests)](https://github.com/Agastya910/agentarmor/actions)
+
 **Comprehensive open-source security framework for agentic AI applications.**
 
 AgentArmor provides 8-layer defense-in-depth security for AI agents, covering every point in the data flow where data is at rest, in transit, or in use. Built to address the [OWASP Top 10 for Agentic Applications (2026)](https://owasp.org/www-project-top-10-for-agentic-security-and-integrity/).
+
+---
+
+## What's New in v0.2.0
+
+- 🔐 **OpenClaw Identity Guard** — Encrypts OpenClaw agent identity files (SOUL.md, MEMORY.md, etc.) with AES-256-GCM + BLAKE3 integrity. Protects against host-level compromise.
+- 🔍 **MCP Server Scanner** — Scans MCP servers for security risks before connecting: dangerous tool detection, rug-pull detection, transport security analysis, and risk scoring.
+- 📦 New `mcp` optional dependency group
+- `fastapi`, `uvicorn`, and `httpx` promoted to core dependencies
 
 ---
 
@@ -34,6 +48,13 @@ uv add agentarmor-core
 # With all optional features
 uv add "agentarmor-core[all]"
 
+# With MCP server scanning support
+uv add "agentarmor-core[mcp]"
+
+# Available extras: proxy, pii, otel, mcp, all, dev
+```
+
+```bash
 # For development
 git clone https://github.com/Agastya910/agentarmor.git
 cd agentarmor
@@ -60,7 +81,7 @@ async def main():
         action="read.file",
         params={"path": "/data/notes.txt"},
         agent_id="my-agent",
-        input_data="Read the user notes file",
+        input_data="Read the file please",
     )
 
     print(f"Safe: {result.is_safe}")
@@ -89,23 +110,76 @@ curl -X POST http://localhost:8400/v1/intercept \
   -d '{"action": "read.file", "agent_id": "my-agent", "input_data": "Hello"}'
 ```
 
-### Framework Integrations
+---
+
+## Integrations
+
+### OpenClaw Identity Guard *(New in v0.2.0)*
+
+Protects OpenClaw agent identity files (SOUL.md, MEMORY.md, USER.md) from host-level theft by encrypting them at rest.
 
 ```python
-# LangChain
+from agentarmor import OpenClawGuard
+
+guard = OpenClawGuard(identity_dir="~/.openclaw")
+
+# Audit — see what's at risk (read-only, no changes)
+report = guard.scan()
+print(report["risk_level"])       # "high" if plaintext files found
+print(report["plaintext_files"])  # ["SOUL.md", "MEMORY.md", ...]
+
+# Encrypt — AES-256-GCM + BLAKE3 integrity
+enc_report = guard.encrypt_identity_files()
+print(enc_report.summary())
+# SOUL.md → SOUL.md.armor (plaintext deleted)
+
+# Decrypt — restore for debugging
+dec_report = guard.decrypt_identity_files()
+```
+
+### MCP Server Scanner *(New in v0.2.0)*
+
+Scans MCP servers for security risks **before** your agent connects.
+
+```python
+from agentarmor import MCPGuard, MCPScanReport
+from agentarmor.integrations.mcp import RiskLevel
+
+guard = MCPGuard()
+
+# Scan a live server
+report = guard.scan_server("http://localhost:8000")
+print(report.summary())
+# Risk level: HIGH (HTTP, no auth detected)
+
+# Scan a tool manifest offline
+report = guard.scan_tool_manifest([
+    {"name": "exec_command", "description": "Execute shell commands"},
+    {"name": "search_web", "description": "Search the web safely"},
+])
+assert report.risk_level == RiskLevel.CRITICAL  # exec_command flagged!
+print(report.dangerous_tools)   # [ToolRisk(tool_name='exec_command', ...)]
+print(report.rug_pull_indicators)  # Detects "safe" description + dangerous name
+```
+
+### LangChain
+
+```python
 from agentarmor.integrations.langchain import AgentArmorCallback
 callback = AgentArmorCallback(armor=armor)
 agent.invoke({"input": "..."}, config={"callbacks": [callback]})
+```
 
-# OpenAI
+### OpenAI
+
+```python
 from agentarmor.integrations.openai import secure_openai_client
 client = secure_openai_client(OpenAI(), armor=armor)
-
-# MCP
-from agentarmor.integrations.mcp import MCPGuard
-guard = MCPGuard(armor=armor)
-result = await guard.call_tool("my-server", "read_file", {"path": "/data"})
 ```
+
+> 📖 **Full integration guide:** [docs/integrations.md](docs/integrations.md)
+
+---
 
 ### Red Team Testing
 
@@ -192,14 +266,30 @@ Agent Runtime (LangChain / CrewAI / OpenAI SDK / MCP)
 | ------------------------- | -------------------------------------------- |
 | ASI01: Goal Hijacking     | L1 (injection), L3 (prompt hardening)        |
 | ASI02: Tool Misuse        | L4 (planning), L5 (execution), Policy Engine |
-| ASI03: Identity Abuse     | L8 (identity), L5 (JIT perms)                |
-| ASI04: Supply Chain       | L1 (source verify), MCP Guard                |
+| ASI03: Identity Abuse     | L8 (identity), L5 (JIT perms), OpenClaw Guard |
+| ASI04: Supply Chain       | L1 (source verify), MCP Scanner              |
 | ASI05: Code Execution     | L5 (sandbox), L4 (risk scoring)              |
 | ASI06: Memory Poisoning   | L2 (integrity), L3 (canary tokens)           |
 | ASI07: Inter-Agent        | L7 (mutual auth, trust scoring)              |
 | ASI08: Cascading Failures | L4 (chain depth), L5 (rate limits)           |
 | ASI09: Human Trust        | L6 (output filter), Audit Logger             |
 | ASI10: Rogue Agents       | L8 (credential rotation), L7 (trust decay)   |
+
+## Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [Quick Start](docs/quickstart.md) | Installation and first steps |
+| [Architecture](docs/architecture.md) | 8-layer pipeline design and data flow |
+| [Integrations](docs/integrations.md) | OpenClaw, MCP Scanner, LangChain, OpenAI |
+| [Policy Language](docs/policy_language.md) | YAML policy reference and examples |
+| [Threat Model](docs/threat_model.md) | OWASP ASI attack vectors and defenses |
+| [Use Cases](docs/use_cases.md) | Financial, coding, RAG, multi-agent examples |
+| [Publishing](docs/pypi_and_github.md) | PyPI & GitHub release guide |
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 

@@ -1,6 +1,6 @@
 [project]
 name = "agentarmor-core"
-version = "0.1.0"
+version = "0.2.0"
 description = "Comprehensive security framework for agentic AI applications — 8-layer defense-in-depth."
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -28,6 +28,9 @@ dependencies = [
     "structlog>=24.0",
     "jsonschema>=4.20",
     "ollama>=0.6.1",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "httpx>=0.27",
 ]
 
 [project.optional-dependencies]
@@ -45,10 +48,14 @@ otel = [
     "opentelemetry-sdk>=1.24",
     "opentelemetry-exporter-otlp>=1.24",
 ]
+mcp = [
+    "mcp>=1.0",
+]
 all = [
     "agentarmor[proxy]",
     "agentarmor[pii]",
     "agentarmor[otel]",
+    "agentarmor[mcp]",
 ]
 dev = [
     "pytest>=8.0",

@@ -6,19 +6,19 @@
 # Inside the agentarmor/ directory
 git init
 git add .
-git commit -m "feat: initial release of AgentArmor v0.1.0
+git commit -m "feat: release of AgentArmor v0.2.0
 
 8-layer defense-in-depth security framework for agentic AI applications.
 Covers OWASP ASI Top 10 — ingestion, storage, context, planning, execution,
 output, inter-agent, and identity security layers."
 
 # Create the repo on GitHub (install gh CLI: https://cli.github.com)
-gh repo create agastyatodi/agentarmor --public --push --source=.
+gh repo create Agastya910/agentarmor --public --push --source=.
 ```
 
 Or manually:
 1. Go to github.com → New Repository → Name: `agentarmor` → Public
-2. `git remote add origin https://github.com/agastyatodi/agentarmor.git`
+2. `git remote add origin https://github.com/Agastya910/agentarmor.git`
 3. `git push -u origin main`
 
 ### Add GitHub Topics (increases discoverability):
@@ -93,9 +93,9 @@ your repo without needing a stored API token.
 
 1. Go to [pypi.org](https://pypi.org) → Log In → Your Account → Publishing
 2. Add a new **pending publisher**:
-   - PyPI Project Name: `agentarmor`
+   - PyPI Project Name: `agentarmor-core`
    - Owner: `agastyatodi`
-   - Repository: `agentarmor`
+   - Repository: `agentarmor-core`
    - Workflow: `publish.yml`
    - Environment: `pypi`
 3. On GitHub: go to repo Settings → Environments → New environment → name it `pypi`
@@ -103,7 +103,7 @@ your repo without needing a stored API token.
 Then publish with:
 
 ```bash
-git tag v0.1.0
+git tag v0.2.0
 git push --tags
 # GitHub Actions automatically builds and publishes to PyPI
 ```
@@ -128,7 +128,7 @@ export UV_PUBLISH_TOKEN=pypi-YOUR_TOKEN_HERE
 uv publish
 ```
 
-After first upload, regenerate the token scoped to only the `agentarmor` project.
+After first upload, regenerate the token scoped to only the `agentarmor-core` project.
 
 ---
 
@@ -168,10 +168,10 @@ uv run ruff check .
 
 # 7. Build and inspect
 uv build
-tar tzf dist/agentarmor-0.1.0.tar.gz | head -30
+tar tzf dist/agentarmor_core-0.2.0.tar.gz | head -30
 
 # 8. Tag and push
-git tag v0.1.0 -m "Release v0.1.0: Initial public release"
+git tag v0.2.0 -m "Release v0.2.0: OpenClaw Guard + MCP Scanner"
 git push --tags
 ```
 
@@ -179,7 +179,7 @@ git push --tags
 
 ## Docs Website (MkDocs)
 
-For a proper docs site at `agastyatodi.github.io/agentarmor`:
+For a proper docs site at `Agastya910.github.io/agentarmor`:
 
 ```bash
 uv add --dev mkdocs mkdocs-material
@@ -188,7 +188,7 @@ uv add --dev mkdocs mkdocs-material
 cat > mkdocs.yml << EOF
 site_name: AgentArmor
 site_description: 8-layer security framework for agentic AI
-repo_url: https://github.com/agastyatodi/agentarmor
+repo_url: https://github.com/Agastya910/agentarmor
 theme:
   name: material
   palette:
