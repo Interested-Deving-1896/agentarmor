@@ -14,6 +14,9 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from urllib.parse import urlparse
 
+from agentarmor.integrations.mcp.oauth_verifier import OAuthVerifier
+from agentarmor.integrations.mcp.tls_validator import TLSValidator
+
 
 class RiskLevel(StrEnum):
     LOW = "low"
@@ -78,6 +81,10 @@ class MCPGuard:
         if report.risk_level in (RiskLevel.HIGH, RiskLevel.CRITICAL):
             raise SecurityError("MCP server failed security scan")
     """
+
+    def __init__(self):
+        self.tls_validator = TLSValidator()
+        self.oauth_verifier = OAuthVerifier()
 
     # Tool names that indicate dangerous capabilities
     DANGEROUS_TOOL_PATTERNS = [
@@ -237,3 +244,72 @@ class MCPGuard:
         if report.dangerous_tools or not report.has_auth:
             return RiskLevel.MEDIUM
         return RiskLevel.LOW
+
+    def full_security_scan(
+        self,
+        server_url: str,
+        tool_manifest=None,
+        timeout: int = 5,
+        allow_self_signed: bool = False,
+    ) -> dict:
+        """
+        Full security scan combining:
+          1. Basic MCP scan (existing scan_server)
+          2. TLS certificate validation
+          3. OAuth 2.1 compliance check
+
+        Returns a dict with keys:
+          mcp_report, tls_report, oauth_report, overall_risk, passed, issues
+        """
+        mcp_report = self.scan_server(server_url, tool_manifest, timeout)
+
+        # TLS validation (only for HTTPS)
+        tls_report = None
+        if urlparse(server_url).scheme == "https":
+            tls_report = self.tls_validator.validate_server(
+                server_url, timeout, allow_self_signed
+            )
+
+        # OAuth check (only for HTTPS — HTTP already flagged by mcp_report)
+        oauth_report = None
+        if urlparse(server_url).scheme == "https":
+            oauth_report = self.oauth_verifier.verify_server(server_url, timeout)
+
+        # Aggregate issues
+        all_issues = list(mcp_report.warnings or [])
+
+        if tls_report:
+            all_issues.extend(tls_report.issues)
+            all_issues.extend(tls_report.warnings)
+
+        if oauth_report:
+            all_issues.extend(oauth_report.issues)
+            all_issues.extend(oauth_report.warnings)
+
+        # Determine overall risk
+        has_critical = (
+            mcp_report.risk_level.value == "critical"
+            or (tls_report and not tls_report.valid)
+            or (oauth_report and not oauth_report.pkce_s256_supported)
+        )
+        has_high = mcp_report.risk_level.value in ("high",)
+
+        if has_critical:
+            overall_risk = "critical"
+        elif has_high:
+            overall_risk = "high"
+        elif all_issues:
+            overall_risk = "medium"
+        else:
+            overall_risk = "low"
+
+        passed = overall_risk in ("low", "medium")
+
+        return {
+            "mcp_report": mcp_report,
+            "tls_report": tls_report,
+            "oauth_report": oauth_report,
+            "overall_risk": overall_risk,
+            "passed": passed,
+            "issues": all_issues,
+        }

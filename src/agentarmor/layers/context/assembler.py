@@ -1,8 +1,12 @@
 """Layer 3: Context Assembly Security — instruction-data separation, prompt hardening, canary tokens."""
 from __future__ import annotations
-import re, secrets
+
+import re
+import secrets
 from typing import Any
+
 import tiktoken
+
 from agentarmor.core.base import SecurityLayer
 from agentarmor.core.config import ContextConfig
 from agentarmor.core.types import AgentEvent, LayerResult, SecurityVerdict, ThreatLevel

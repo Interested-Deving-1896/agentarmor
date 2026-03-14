@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import functools
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from agentarmor.audit.logger import AuditLogger
 from agentarmor.core.base import SecurityLayer

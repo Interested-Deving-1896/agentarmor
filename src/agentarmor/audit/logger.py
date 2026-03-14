@@ -13,7 +13,6 @@ import structlog
 from agentarmor.core.config import AuditConfig
 from agentarmor.core.types import AgentEvent, LayerResult, PipelineResult
 
-
 logger = structlog.get_logger("agentarmor.audit")
 
 
@@ -83,7 +82,7 @@ class AuditLogger:
         try:
             from opentelemetry import trace
             from opentelemetry.sdk.trace import TracerProvider
-            from opentelemetry.sdk.trace.export import SimpleSpanProcessor, ConsoleSpanExporter
+            from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SimpleSpanProcessor
 
             provider = TracerProvider()
             provider.add_span_processor(SimpleSpanProcessor(ConsoleSpanExporter()))

@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from agentarmor.core.base import SecurityLayer
 from agentarmor.core.config import InterAgentConfig
-from agentarmor.core.exceptions import AuthenticationError, TrustScoreError
+from agentarmor.core.exceptions import AuthenticationError
 from agentarmor.core.types import (
     AgentEvent,
     LayerResult,

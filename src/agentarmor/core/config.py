@@ -1,7 +1,9 @@
 """Configuration management for AgentArmor."""
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
+
 import yaml
 from pydantic import BaseModel, Field
 
@@ -110,13 +112,13 @@ class ArmorConfig(BaseModel):
     audit: AuditConfig = Field(default_factory=AuditConfig)
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "ArmorConfig":
+    def from_yaml(cls, path: str | Path) -> ArmorConfig:
         with open(path) as f:
             data = yaml.safe_load(f)
         return cls(**data)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ArmorConfig":
+    def from_dict(cls, data: dict[str, Any]) -> ArmorConfig:
         return cls(**data)
 
     def to_yaml(self, path: str | Path) -> None:

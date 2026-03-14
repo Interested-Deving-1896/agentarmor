@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -93,7 +92,7 @@ class RedTeamSuite:
         passed = sum(1 for r in results if r.passed)
         total = len(results)
         print(f"\n{'='*60}")
-        print(f"  AgentArmor Red Team Report")
+        print("  AgentArmor Red Team Report")
         print(f"  {passed}/{total} tests passed ({100*passed//total if total else 0}%)")
         print(f"{'='*60}\n")
 

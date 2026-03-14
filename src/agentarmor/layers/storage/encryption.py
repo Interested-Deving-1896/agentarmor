@@ -1,10 +1,13 @@
 """Layer 2: Memory & Storage Security — encryption at rest, classification, integrity."""
 from __future__ import annotations
-import os, time
+
+import os
+import time
 from typing import Any
+
 import blake3
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from pydantic import BaseModel, Field
+
 from agentarmor.core.base import SecurityLayer
 from agentarmor.core.config import StorageConfig
 from agentarmor.core.exceptions import EncryptionError

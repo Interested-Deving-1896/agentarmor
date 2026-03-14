@@ -1,7 +1,8 @@
 """Layer 4: Reasoning & Planning Security — action plan validation, policy enforcement."""
 from __future__ import annotations
+
 from typing import Any
-import jsonschema
+
 from agentarmor.core.base import SecurityLayer
 from agentarmor.core.config import PlanningConfig
 from agentarmor.core.types import ActionCategory, AgentEvent, LayerResult, SecurityVerdict, ThreatLevel

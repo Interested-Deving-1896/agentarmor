@@ -18,7 +18,7 @@ wheels = [
 
 [[package]]
 name = "agentarmor-core"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "blake3" },
@@ -48,6 +48,9 @@ dev = [
 mcp = [
     { name = "mcp" },
 ]
+oauth = [
+    { name = "pyjwt" },
+]
 otel = [
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp" },
@@ -66,6 +69,7 @@ proxy = [
 [package.metadata]
 requires-dist = [
     { name = "agentarmor", extras = ["mcp"], marker = "extra == 'all'" },
+    { name = "agentarmor", extras = ["oauth"], marker = "extra == 'all'" },
     { name = "agentarmor", extras = ["otel"], marker = "extra == 'all'" },
     { name = "agentarmor", extras = ["pii"], marker = "extra == 'all'" },
     { name = "agentarmor", extras = ["proxy"], marker = "extra == 'all'" },
@@ -85,6 +89,7 @@ requires-dist = [
     { name = "presidio-analyzer", marker = "extra == 'pii'", specifier = ">=2.2" },
     { name = "presidio-anonymizer", marker = "extra == 'pii'", specifier = ">=2.2" },
     { name = "pydantic", specifier = ">=2.0" },
+    { name = "pyjwt", marker = "extra == 'oauth'", specifier = ">=2.8" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
@@ -95,7 +100,7 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.27" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'proxy'", specifier = ">=0.27" },
 ]
-provides-extras = ["proxy", "pii", "otel", "mcp", "all", "dev"]
+provides-extras = ["proxy", "pii", "otel", "mcp", "oauth", "all", "dev"]
 
 [[package]]
 name = "annotated-doc"

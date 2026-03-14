@@ -18,11 +18,13 @@ from agentarmor.core.types import (
     ThreatLevel,
 )
 from agentarmor.integrations.mcp import MCPGuard, MCPScanReport
+from agentarmor.integrations.mcp.oauth_verifier import OAuthVerifier
+from agentarmor.integrations.mcp.tls_validator import TLSValidator
 from agentarmor.integrations.openclaw import OpenClawGuard
 from agentarmor.pipeline import AgentArmor
 from agentarmor.policy.engine import PolicyEngine, SecurityPolicy
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "AgentArmor",
@@ -44,4 +46,6 @@ __all__ = [
     "OpenClawGuard",
     "MCPGuard",
     "MCPScanReport",
+    "TLSValidator",
+    "OAuthVerifier",
 ]

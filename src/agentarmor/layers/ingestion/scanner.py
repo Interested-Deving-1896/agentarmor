@@ -1,7 +1,9 @@
 """Layer 1: Data Ingestion Security — input scanning, injection detection, source verification."""
 from __future__ import annotations
+
 import re
 from typing import Any
+
 from agentarmor.core.base import SecurityLayer
 from agentarmor.core.config import IngestionConfig
 from agentarmor.core.types import AgentEvent, LayerResult, SecurityVerdict, ThreatLevel

@@ -1,8 +1,11 @@
 """Core type definitions for AgentArmor."""
 from __future__ import annotations
-import time, uuid
+
+import time
+import uuid
 from enum import Enum
 from typing import Any
+
 from pydantic import BaseModel, Field
 
 

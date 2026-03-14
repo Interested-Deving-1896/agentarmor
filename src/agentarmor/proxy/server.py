@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-import json
-import time
-from typing import Any
-
 from agentarmor.core.config import ArmorConfig
 from agentarmor.core.types import AgentEvent
 from agentarmor.pipeline import AgentArmor
@@ -13,7 +9,7 @@ from agentarmor.pipeline import AgentArmor
 
 def create_app(config: ArmorConfig | None = None):
     """Create the FastAPI proxy application."""
-    from fastapi import FastAPI, Request, Response
+    from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
 
     app = FastAPI(

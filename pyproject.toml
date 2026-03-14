@@ -1,6 +1,6 @@
 [project]
 name = "agentarmor-core"
-version = "0.2.0"
+version = "0.3.0"
 description = "Comprehensive security framework for agentic AI applications — 8-layer defense-in-depth."
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -51,11 +51,15 @@ otel = [
 mcp = [
     "mcp>=1.0",
 ]
+oauth = [
+    "PyJWT>=2.8",
+]
 all = [
     "agentarmor[proxy]",
     "agentarmor[pii]",
     "agentarmor[otel]",
     "agentarmor[mcp]",
+    "agentarmor[oauth]",
 ]
 dev = [
     "pytest>=8.0",

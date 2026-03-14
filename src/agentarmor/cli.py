@@ -73,8 +73,9 @@ def cmd_scan(args: argparse.Namespace) -> None:
 def cmd_serve(args: argparse.Namespace) -> None:
     """Start the AgentArmor proxy server."""
     try:
-        from agentarmor.proxy.server import create_app
         import uvicorn
+
+        from agentarmor.proxy.server import create_app
     except ImportError:
         print("Proxy dependencies not installed. Run: uv add 'agentarmor[proxy]'", file=sys.stderr)
         sys.exit(1)
@@ -88,9 +89,9 @@ def cmd_keygen(args: argparse.Namespace) -> None:
     """Generate an encryption key."""
     from agentarmor.layers.storage.encryption import EncryptionManager
     key = EncryptionManager.generate_key_hex()
-    print(f"Generated 256-bit encryption key:")
+    print("Generated 256-bit encryption key:")
     print(f"  Hex: {key}")
-    print(f"\nSet as environment variable:")
+    print("\nSet as environment variable:")
     print(f"  export AGENTARMOR_ENCRYPTION_KEY={key}")
 
 

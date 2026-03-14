@@ -1,7 +1,9 @@
 """Base class for all security layers."""
 from __future__ import annotations
+
 import time
 from abc import ABC, abstractmethod
+
 from agentarmor.core.types import AgentEvent, LayerResult, SecurityVerdict, ThreatLevel
 
 

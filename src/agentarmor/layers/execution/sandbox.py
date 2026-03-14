@@ -1,8 +1,11 @@
 """Layer 5: Action Execution Security — sandboxing, rate limiting, human approval gates."""
 from __future__ import annotations
-import asyncio, time
+
+import time
 from collections import defaultdict
-from typing import Any, Callable, Awaitable
+from collections.abc import Awaitable, Callable
+from typing import Any
+
 from agentarmor.core.base import SecurityLayer
 from agentarmor.core.config import ExecutionConfig
 from agentarmor.core.types import AgentEvent, LayerResult, SecurityVerdict, ThreatLevel

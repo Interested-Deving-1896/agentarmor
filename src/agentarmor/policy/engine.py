@@ -9,7 +9,7 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, Field
 
-from agentarmor.core.types import ActionCategory, AgentEvent, SecurityVerdict
+from agentarmor.core.types import AgentEvent, SecurityVerdict
 
 
 class PolicyRule(BaseModel):
@@ -38,7 +38,7 @@ class SecurityPolicy(BaseModel):
     require_human_approval_for: list[str] = Field(default_factory=list)
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "SecurityPolicy":
+    def from_yaml(cls, path: str | Path) -> SecurityPolicy:
         with open(path) as f:
             data = yaml.safe_load(f)
         rules_data = data.pop("rules", [])
