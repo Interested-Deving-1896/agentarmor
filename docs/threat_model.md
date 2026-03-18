@@ -77,6 +77,9 @@ Malicious tools, poisoned MCP servers, or compromised packages injected into the
 | Unencrypted MCP transport | HTTP instead of HTTPS | `scan_server()` transport security check (HTTP → HIGH risk) | MCP Scanner |
 | Dangerous tool detection | MCP server exposes `exec_command` | Tool name regex scoring (CRITICAL/HIGH/MEDIUM) | MCP Scanner |
 | Missing auth | MCP server has no authentication | Auth heuristic detection (token/key/auth in URL) | MCP Scanner |
+| Weak TLS / expired cert | TLS 1.0 or expired certificate on MCP server | **TLS Validator** *(v0.3.0)*: cipher, version, expiry checks | TLS Validator |
+| No OAuth 2.1 / missing PKCE | MCP server lacks proper OAuth or PKCE S256 | **OAuth Verifier** *(v0.3.0)*: compliance + PKCE check | OAuth Verifier |
+| Agent connecting to unknown server | Claude Code told to use untrusted MCP server | **`armor_scan_mcp_server`** *(v0.4.0)*: agents self-check before connecting | MCP Server |
 | Poisoned npm/pip package | Package calls home on import | Network egress blocking (disabled by default) | L5 |
 
 ---

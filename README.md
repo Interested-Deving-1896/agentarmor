@@ -11,12 +11,23 @@ AgentArmor provides 8-layer defense-in-depth security for AI agents, covering ev
 
 ---
 
-## What's New in v0.2.0
+## What's New in v0.4.0
 
-- 🔐 **OpenClaw Identity Guard** — Encrypts OpenClaw agent identity files (SOUL.md, MEMORY.md, etc.) with AES-256-GCM + BLAKE3 integrity. Protects against host-level compromise.
-- 🔍 **MCP Server Scanner** — Scans MCP servers for security risks before connecting: dangerous tool detection, rug-pull detection, transport security analysis, and risk scoring.
-- 📦 New `mcp` optional dependency group
-- `fastapi`, `uvicorn`, and `httpx` promoted to core dependencies
+- 🚀 **MCP Server Plugin** — AgentArmor now ships as a native MCP server. Claude Code, OpenClaw, Cursor, Windsurf, and any MCP-compatible agent can call AgentArmor's security tools directly — **zero Python code required**.
+- 🛠️ **6 MCP Tools** — `armor_register_agent`, `armor_scan_input`, `armor_intercept`, `armor_scan_output`, `armor_scan_mcp_server`, `armor_get_status`
+- ⚡ **One-command setup** — `setup_claude_code.sh` auto-configures Claude Code with AgentArmor
+- 📖 New `agentarmor-mcp` CLI entry point for stdio transport
+
+### What's New in v0.3.0
+
+- 🔒 **TLS Certificate Validation** — Validates MCP server TLS certificates: version, cipher suite, expiry, weak cipher detection
+- 🔑 **OAuth 2.1 Compliance Checker** — Verifies OAuth 2.1 compliance with PKCE S256 support, Protected Resource Metadata, and Authorization Server Metadata
+- 🛡️ **Full Security Scan** — `MCPGuard.full_security_scan()` combines TLS + OAuth + tool analysis in a single call
+
+### What's New in v0.2.0
+
+- 🔐 **OpenClaw Identity Guard** — Encrypts OpenClaw agent identity files with AES-256-GCM + BLAKE3 integrity
+- 🔍 **MCP Server Scanner** — Scans MCP servers for dangerous tools, rug-pulls, and transport security
 
 ---
 
@@ -45,13 +56,13 @@ Every existing security tool is a **point solution** — output validators, prom
 # Using uv (recommended)
 uv add agentarmor-core
 
+# With MCP server support (for Claude Code, OpenClaw, etc.)
+uv add "agentarmor-core[mcp]"
+
 # With all optional features
 uv add "agentarmor-core[all]"
 
-# With MCP server scanning support
-uv add "agentarmor-core[mcp]"
-
-# Available extras: proxy, pii, otel, mcp, all, dev
+# Available extras: proxy, pii, otel, mcp, oauth, all, dev
 ```
 
 ```bash
@@ -114,65 +125,78 @@ curl -X POST http://localhost:8400/v1/intercept \
 
 ## Integrations
 
-### OpenClaw Identity Guard *(New in v0.2.0)*
+### MCP Server — Zero-Code Security for Any Agent *(New in v0.4.0)*
 
-Protects OpenClaw agent identity files (SOUL.md, MEMORY.md, USER.md) from host-level theft by encrypting them at rest.
+AgentArmor runs as a native **MCP server** that any MCP-compatible coding agent can call directly — no Python code changes needed in your project.
+
+**Setup for Claude Code** — add to `~/.claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "agentarmor": {
+      "command": "uv",
+      "args": ["run", "agentarmor-mcp"],
+      "cwd": "/path/to/your/project"
+    }
+  }
+}
+```
+
+**Or run the one-command setup:**
+
+```bash
+bash setup_claude_code.sh
+```
+
+**Available MCP Tools:**
+
+| Tool | What It Does |
+|------|-------------|
+| `armor_register_agent` | Register an agent with a permission set |
+| `armor_scan_input` | Scan text for prompt injection, jailbreaks, DAN attacks |
+| `armor_intercept` | Run a tool call through all 8 security layers |
+| `armor_scan_output` | Redact PII (emails, SSNs, API keys) from output |
+| `armor_scan_mcp_server` | Full TLS + OAuth 2.1 + rug-pull scan of any MCP server |
+| `armor_get_status` | Health check: version, layers, registered agents |
+
+> 📖 **Full setup guide:** [docs/claude_code_setup.md](docs/claude_code_setup.md)
+
+### TLS + OAuth 2.1 Verification *(New in v0.3.0)*
+
+```python
+from agentarmor import MCPGuard
+
+guard = MCPGuard()
+result = guard.full_security_scan("https://api.example.com/mcp")
+print(result["overall_risk"])  # "low" / "medium" / "high" / "critical"
+```
+
+### OpenClaw Identity Guard *(v0.2.0)*
 
 ```python
 from agentarmor import OpenClawGuard
-
 guard = OpenClawGuard(identity_dir="~/.openclaw")
-
-# Audit — see what's at risk (read-only, no changes)
-report = guard.scan()
-print(report["risk_level"])       # "high" if plaintext files found
-print(report["plaintext_files"])  # ["SOUL.md", "MEMORY.md", ...]
-
-# Encrypt — AES-256-GCM + BLAKE3 integrity
-enc_report = guard.encrypt_identity_files()
-print(enc_report.summary())
-# SOUL.md → SOUL.md.armor (plaintext deleted)
-
-# Decrypt — restore for debugging
-dec_report = guard.decrypt_identity_files()
+enc_report = guard.encrypt_identity_files()  # AES-256-GCM + BLAKE3
 ```
 
-### MCP Server Scanner *(New in v0.2.0)*
-
-Scans MCP servers for security risks **before** your agent connects.
+### MCP Server Scanner *(v0.2.0)*
 
 ```python
-from agentarmor import MCPGuard, MCPScanReport
-from agentarmor.integrations.mcp import RiskLevel
-
+from agentarmor import MCPGuard
 guard = MCPGuard()
-
-# Scan a live server
 report = guard.scan_server("http://localhost:8000")
-print(report.summary())
-# Risk level: HIGH (HTTP, no auth detected)
-
-# Scan a tool manifest offline
-report = guard.scan_tool_manifest([
-    {"name": "exec_command", "description": "Execute shell commands"},
-    {"name": "search_web", "description": "Search the web safely"},
-])
-assert report.risk_level == RiskLevel.CRITICAL  # exec_command flagged!
-print(report.dangerous_tools)   # [ToolRisk(tool_name='exec_command', ...)]
-print(report.rug_pull_indicators)  # Detects "safe" description + dangerous name
+print(report.summary())  # Risk level, dangerous tools, rug-pulls
 ```
 
-### LangChain
+### LangChain / OpenAI
 
 ```python
+# LangChain
 from agentarmor.integrations.langchain import AgentArmorCallback
 callback = AgentArmorCallback(armor=armor)
-agent.invoke({"input": "..."}, config={"callbacks": [callback]})
-```
 
-### OpenAI
-
-```python
+# OpenAI
 from agentarmor.integrations.openai import secure_openai_client
 client = secure_openai_client(OpenAI(), armor=armor)
 ```
@@ -193,13 +217,14 @@ suite.print_report(results)
 
 ## CLI Commands
 
-| Command                        | Description             |
-| ------------------------------ | ----------------------- |
-| `agentarmor init`              | Generate a config file  |
-| `agentarmor validate <config>` | Validate configuration  |
-| `agentarmor scan -t "text"`    | Scan text for threats   |
-| `agentarmor serve`             | Start proxy server      |
-| `agentarmor keygen`            | Generate encryption key |
+| Command                        | Description                            |
+| ------------------------------ | -------------------------------------- |
+| `agentarmor init`              | Generate a config file                 |
+| `agentarmor validate <config>` | Validate configuration                 |
+| `agentarmor scan -t "text"`    | Scan text for threats                  |
+| `agentarmor serve`             | Start proxy server                     |
+| `agentarmor keygen`            | Generate encryption key                |
+| `agentarmor-mcp`               | Start MCP server (stdio transport) *(v0.4.0)* |
 
 ## Custom Security Policies
 
@@ -231,33 +256,42 @@ rules:
 ## Architecture
 
 ```
-Agent Runtime (LangChain / CrewAI / OpenAI SDK / MCP)
-         │
-         ▼
-┌─────────────────────────────┐
-│      AgentArmor Pipeline     │
-│  ┌───────────────────────┐  │
-│  │  L8: Identity & IAM   │  │
-│  ├───────────────────────┤  │
-│  │  L1: Data Ingestion   │  │
-│  ├───────────────────────┤  │
-│  │  L2: Memory/Storage   │  │
-│  ├───────────────────────┤  │
-│  │  L3: Context Assembly │  │
-│  ├───────────────────────┤  │
-│  │  L4: Plan Validation  │  │
-│  ├───────────────────────┤  │
-│  │  L5: Action Execution │  │
-│  ├───────────────────────┤  │
-│  │  L7: Inter-Agent Sec  │  │
-│  └───────────────────────┘  │
-│  L6: Output Filter (post)   │
-│  Audit Logger (cross-cut)   │
-│  Policy Engine (cross-cut)  │
-└─────────────────────────────┘
-         │
-         ▼
-    External Tools / APIs / LLMs
+                            MCP Agents (Claude Code, OpenClaw, Cursor, etc.)
+                                       │
+                                  stdio │ (agentarmor-mcp)
+                                       ▼
+Agent Runtime                   ┌─────────────────┐
+(LangChain /                    │  MCP Server      │
+ CrewAI /                       │  6 tools         │
+ OpenAI SDK /  ─── Python ────► │  (v0.4.0)        │
+ MCP)                           └────────┬─────────┘
+         │                               │
+         └───────────────┬───────────────┘
+                         ▼
+              ┌─────────────────────────────┐
+              │      AgentArmor Pipeline     │
+              │  ┌───────────────────────┐  │
+              │  │  L8: Identity & IAM   │  │
+              │  ├───────────────────────┤  │
+              │  │  L1: Data Ingestion   │  │
+              │  ├───────────────────────┤  │
+              │  │  L2: Memory/Storage   │  │
+              │  ├───────────────────────┤  │
+              │  │  L3: Context Assembly │  │
+              │  ├───────────────────────┤  │
+              │  │  L4: Plan Validation  │  │
+              │  ├───────────────────────┤  │
+              │  │  L5: Action Execution │  │
+              │  ├───────────────────────┤  │
+              │  │  L7: Inter-Agent Sec  │  │
+              │  └───────────────────────┘  │
+              │  L6: Output Filter (post)   │
+              │  Audit Logger (cross-cut)   │
+              │  Policy Engine (cross-cut)  │
+              └─────────────────────────────┘
+                         │
+                         ▼
+                External Tools / APIs / LLMs
 ```
 
 ## OWASP ASI Coverage
@@ -280,11 +314,12 @@ Agent Runtime (LangChain / CrewAI / OpenAI SDK / MCP)
 | Doc | Description |
 |-----|-------------|
 | [Quick Start](docs/quickstart.md) | Installation and first steps |
+| [Claude Code Setup](docs/claude_code_setup.md) | MCP server setup for Claude Code, OpenClaw, Cursor |
 | [Architecture](docs/architecture.md) | 8-layer pipeline design and data flow |
-| [Integrations](docs/integrations.md) | OpenClaw, MCP Scanner, LangChain, OpenAI |
+| [Integrations](docs/integrations.md) | MCP Server, OpenClaw, TLS/OAuth, LangChain, OpenAI |
 | [Policy Language](docs/policy_language.md) | YAML policy reference and examples |
 | [Threat Model](docs/threat_model.md) | OWASP ASI attack vectors and defenses |
-| [Use Cases](docs/use_cases.md) | Financial, coding, RAG, multi-agent examples |
+| [Use Cases](docs/use_cases.md) | Financial, coding, RAG, multi-agent, MCP examples |
 | [Publishing](docs/pypi_and_github.md) | PyPI & GitHub release guide |
 
 ## Contributing

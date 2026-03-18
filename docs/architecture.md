@@ -177,13 +177,48 @@ Tamper-proof logging of every security event.
 - **New red team test**: add `TestCase` to `redteam/suite.py`
 - **Custom PII entities**: register with `presidio_analyzer` in `layers/output/filter.py`
 
-### Built-in Integrations (v0.2.0)
+### Built-in Integrations (v0.4.0)
 
 | Integration | Module | Purpose |
 |-------------|--------|---------|
+| **MCP Server** *(v0.4.0)* | `integrations/mcp_server/` | Native MCP server — 6 security tools callable by Claude Code, OpenClaw, Cursor, etc. |
+| **TLS Validator** *(v0.3.0)* | `integrations/mcp/tls_validator.py` | Validate TLS certificates, cipher suites, expiry |
+| **OAuth 2.1 Verifier** *(v0.3.0)* | `integrations/mcp/oauth_verifier.py` | Verify OAuth 2.1 compliance, PKCE S256, PRM/ASM |
 | **OpenClaw Guard** | `integrations/openclaw/` | Encrypt agent identity files (SOUL.md, MEMORY.md, etc.) |
 | **MCP Scanner** | `integrations/mcp/guard.py` | Scan MCP servers for dangerous tools and rug-pulls |
 | **LangChain** | `integrations/langchain/` | Callback-based tool call interception |
 | **OpenAI** | `integrations/openai/` | Secure client wrapper for OpenAI API |
 
+### MCP Server Data Flow (v0.4.0)
+
+```
+MCP Agent (Claude Code, OpenClaw, Cursor, etc.)
+    │
+    │ stdio (JSON-RPC over stdin/stdout)
+    │
+    ▼
+┌─────────────────────────────────────┐
+│  AgentArmor MCP Server              │
+│  (agentarmor-mcp)                   │
+│                                     │
+│  armor_scan_input ──► L1 Ingestion  │
+│  armor_intercept ──► Full Pipeline  │
+│  armor_scan_output ──► L6 Output    │
+│  armor_scan_mcp_server ──► MCPGuard │
+│  armor_register_agent ──► L8 Ident  │
+│  armor_get_status ──► Health Check  │
+└─────────────────────────────────────┘
+    │
+    ▼
+  AgentArmor Pipeline (8 layers)
+    │
+    ▼
+  JSON response back to agent
+```
+
+The MCP server provides a **zero-code** path to AgentArmor's security pipeline.
+Agents call tools via the standard MCP protocol and receive JSON responses with
+verdicts, threat levels, and actionable messages.
+
 See [integrations.md](integrations.md) for full usage documentation.
+
