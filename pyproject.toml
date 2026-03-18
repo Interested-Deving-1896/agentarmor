@@ -1,6 +1,6 @@
 [project]
 name = "agentarmor-core"
-version = "0.3.0"
+version = "0.4.0"
 description = "Comprehensive security framework for agentic AI applications — 8-layer defense-in-depth."
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -71,6 +71,7 @@ dev = [
 
 [project.scripts]
 agentarmor = "agentarmor.cli:main"
+agentarmor-mcp = "agentarmor.integrations.mcp_server.server:run"
 
 [build-system]
 requires = ["hatchling"]

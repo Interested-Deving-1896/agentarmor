@@ -24,7 +24,14 @@ from agentarmor.integrations.openclaw import OpenClawGuard
 from agentarmor.pipeline import AgentArmor
 from agentarmor.policy.engine import PolicyEngine, SecurityPolicy
 
-__version__ = "0.3.0"
+# MCP Server (v0.4.0)
+try:
+    from agentarmor.integrations.mcp_server.server import create_server as create_server  # noqa: F401
+    from agentarmor.integrations.mcp_server.server import run as run_mcp_server  # noqa: F401
+except ImportError:
+    pass  # mcp package optional
+
+__version__ = "0.4.0"
 
 __all__ = [
     "AgentArmor",
