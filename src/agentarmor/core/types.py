@@ -43,6 +43,25 @@ class ActionCategory(str, Enum):
     ADMIN = "admin"
 
 
+class RiskScore(BaseModel):
+    """Composite risk assessment combining verb-based and target-based scoring."""
+
+    verb_score: int
+    target_multiplier: float = 1.0
+    composite_score: float
+    sensitive_target: bool = False
+
+    @classmethod
+    def build(cls, verb_score: int, target_multiplier: float) -> "RiskScore":
+        """Convenience constructor that derives composite_score and sensitive_target."""
+        return cls(
+            verb_score=verb_score,
+            target_multiplier=target_multiplier,
+            composite_score=min(10.0, verb_score * target_multiplier),
+            sensitive_target=target_multiplier > 1.5,
+        )
+
+
 class AgentEvent(BaseModel):
     event_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: float = Field(default_factory=time.time)

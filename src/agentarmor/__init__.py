@@ -14,6 +14,7 @@ from agentarmor.core.types import (
     DataClassification,
     LayerResult,
     PipelineResult,
+    RiskScore,
     SecurityVerdict,
     ThreatLevel,
 )
@@ -45,6 +46,7 @@ __all__ = [
     "ThreatLevel",
     "DataClassification",
     "ActionCategory",
+    "RiskScore",
     "AgentArmorError",
     "PolicyViolationError",
     "EncryptionError",

@@ -5,7 +5,8 @@ from typing import Any
 
 from agentarmor.core.base import SecurityLayer
 from agentarmor.core.config import PlanningConfig
-from agentarmor.core.types import ActionCategory, AgentEvent, LayerResult, SecurityVerdict, ThreatLevel
+from agentarmor.core.types import ActionCategory, AgentEvent, LayerResult, RiskScore, SecurityVerdict, ThreatLevel
+from agentarmor.layers.planning.target_sensitivity import compute_composite_score, get_target_multiplier
 
 ACTION_RISK_MAP: dict[str, ActionCategory] = {
     "read": ActionCategory.READ, "get": ActionCategory.READ, "list": ActionCategory.READ,
@@ -53,11 +54,18 @@ class PlanningLayer(SecurityLayer):
                     message=f"Action '{action}' not in allowed list")
 
         category = self._categorize_action(action)
-        risk_score = CATEGORY_RISK.get(category, 5)
+        verb_score = CATEGORY_RISK.get(category, 5)
+        target_multiplier = get_target_multiplier(event.params)
+        composite_score = compute_composite_score(verb_score, event.params)
+        risk = RiskScore.build(verb_score, target_multiplier)
+
         event.metadata["action_category"] = category.value
-        event.metadata["risk_score"] = risk_score
-        if risk_score >= 7:
-            findings.append(f"High-risk action: {category.value} (score={risk_score})")
+        event.metadata["risk_score"] = verb_score
+        event.metadata["composite_score"] = composite_score
+        event.metadata["risk_assessment"] = risk.model_dump()
+
+        if composite_score >= 7:
+            findings.append(f"High-risk action: {category.value} (composite={composite_score:.1f}, verb={verb_score}, target_mult={target_multiplier:.1f})")
 
         chain_depth = event.context.get("chain_depth", 0)
         if chain_depth > self.config.max_chain_depth:
@@ -71,19 +79,25 @@ class PlanningLayer(SecurityLayer):
         verdict = SecurityVerdict.ALLOW
         threat = ThreatLevel.NONE
         if findings:
-            if risk_score >= 8:          # EXECUTE (8) or ADMIN (10) — hard deny, no escalation
+            if composite_score >= 8:       # High composite — hard deny
                 verdict = SecurityVerdict.DENY
                 threat = ThreatLevel.HIGH
-            elif risk_score == 7:        # DELETE (7) — escalate, require human approval
+            elif composite_score >= 7:     # Elevated composite — escalate, require human approval
                 verdict = SecurityVerdict.ESCALATE
                 threat = ThreatLevel.HIGH
-            else:                        # WRITE (3), TRANSFER (5) — audit trail only
+            else:                          # Lower composite — audit trail only
                 verdict = SecurityVerdict.AUDIT
                 threat = ThreatLevel.MEDIUM
 
         return LayerResult(layer=self.name, verdict=verdict, threat_level=threat,
             message="; ".join(findings) if findings else "Plan validation passed",
-            details={"category": category.value, "risk_score": risk_score})
+            details={
+                "category": category.value,
+                "risk_score": verb_score,
+                "composite_score": composite_score,
+                "target_multiplier": target_multiplier,
+                "sensitive_target": risk.sensitive_target,
+            })
 
     def register_output_schema(self, action: str, schema: dict) -> None:
         self._output_schemas[action] = schema
