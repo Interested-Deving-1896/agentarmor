@@ -11,6 +11,11 @@ AgentArmor provides 8-layer defense-in-depth security for AI agents, covering ev
 
 ---
 
+## What's New in v0.4.1 — Security Fixes
+
+- 🎯 **L4: Param-Aware Risk Scoring** — Risk scoring now considers the *target* of an action, not just the verb. `read.file /etc/shadow` correctly scores higher than `delete.file /tmp/cache.json`. See [CHANGELOG.md](CHANGELOG.md).
+- ⏱️ **L7: Time-Based Trust Decay** — `TrustScorer.decay_rate` is now actually applied. Dormant agents lose trust over time: `effective_trust = stored_trust × (decay_rate ^ days_idle)`. New `get_trust_debug_info()` for analytics.
+
 ## What's New in v0.4.0
 
 - 🚀 **MCP Server Plugin** — AgentArmor now ships as a native MCP server. Claude Code, OpenClaw, Cursor, Windsurf, and any MCP-compatible agent can call AgentArmor's security tools directly — **zero Python code required**.
