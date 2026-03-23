@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import hashlib
 import hmac
 import secrets
@@ -35,25 +36,66 @@ class AgentCredential(BaseModel):
         return self.expires_at > 0 and time.time() > self.expires_at
 
 
-class TrustScorer:
-    """Computes and maintains trust scores for agent-to-agent interactions."""
+class TrustRecord(BaseModel):
+    """Per-agent trust state with timestamp for decay computation."""
 
-    def __init__(self, min_trust: float = 0.7, decay_rate: float = 0.01):
-        self._scores: dict[str, float] = {}
+    trust_score: float = 0.5
+    last_interaction_timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
+    interaction_count: int = 0
+
+
+class TrustScorer:
+    """Computes and maintains trust scores for agent-to-agent interactions.
+
+    Trust decays over time when agents are dormant.  ``get_score`` computes
+    the *effective* trust on every read using::
+
+        effective_trust = stored_trust × (decay_rate ** days_since_last_interaction)
+
+    The decayed value is **not** persisted — only actual interactions (via
+    ``update``) write to the trust record.
+    """
+
+    def __init__(self, min_trust: float = 0.7, decay_rate: float = 0.99):
+        self._records: dict[str, TrustRecord] = {}
         self._interactions: dict[str, list[dict[str, Any]]] = {}
         self.min_trust = min_trust
         self.decay_rate = decay_rate
 
+        # Legacy alias kept for backward compatibility with existing tests
+        # that directly mutate ``scorer._scores``.
+        self._scores: _ScoresProxy = _ScoresProxy(self)
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
     def get_score(self, agent_id: str) -> float:
-        return self._scores.get(agent_id, 0.5)  # Default: neutral
+        """Return effective trust after applying time-based decay."""
+        record = self._records.get(agent_id)
+        if record is None:
+            return 0.5  # Default: neutral
+
+        days_since = self._days_since_last_interaction(record)
+        effective = record.trust_score * (self.decay_rate ** days_since)
+        return max(0.0, min(1.0, effective))
 
     def update(self, agent_id: str, success: bool, details: str = "") -> float:
-        current = self._scores.get(agent_id, 0.5)
+        """Update trust based on an interaction outcome and refresh the timestamp."""
+        record = self._records.get(agent_id)
+        if record is None:
+            record = TrustRecord()
+            self._records[agent_id] = record
+
         if success:
-            new_score = min(1.0, current + 0.05)
+            new_score = min(1.0, record.trust_score + 0.05)
         else:
-            new_score = max(0.0, current - 0.15)
-        self._scores[agent_id] = new_score
+            new_score = max(0.0, record.trust_score - 0.15)
+
+        record.trust_score = new_score
+        record.last_interaction_timestamp = datetime.datetime.now(datetime.timezone.utc)
+        record.interaction_count += 1
+
         self._interactions.setdefault(agent_id, []).append({
             "timestamp": time.time(),
             "success": success,
@@ -67,6 +109,70 @@ class TrustScorer:
 
     def get_history(self, agent_id: str) -> list[dict[str, Any]]:
         return self._interactions.get(agent_id, [])
+
+    def get_trust_debug_info(self, agent_id: str) -> dict[str, Any]:
+        """Return a debug / analytics snapshot for *agent_id*."""
+        record = self._records.get(agent_id)
+        if record is None:
+            return {
+                "agent_id": agent_id,
+                "stored_trust": 0.5,
+                "effective_trust": 0.5,
+                "days_since_last_interaction": 0,
+                "decay_applied": 1.0,
+                "interaction_count": 0,
+            }
+        days_since = self._days_since_last_interaction(record)
+        decay_applied = self.decay_rate ** days_since
+        return {
+            "agent_id": agent_id,
+            "stored_trust": record.trust_score,
+            "effective_trust": max(0.0, min(1.0, record.trust_score * decay_applied)),
+            "days_since_last_interaction": days_since,
+            "decay_applied": decay_applied,
+            "interaction_count": record.interaction_count,
+        }
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _days_since_last_interaction(record: TrustRecord) -> int:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        delta = now - record.last_interaction_timestamp
+        return max(0, delta.days)
+
+
+class _ScoresProxy:
+    """Thin proxy so existing code using ``scorer._scores[agent_id] = x`` still works.
+
+    Reads/writes are transparently forwarded to the underlying ``_records``
+    dict, creating a ``TrustRecord`` on first write.
+    """
+
+    def __init__(self, scorer: TrustScorer):
+        self._scorer = scorer
+
+    def __setitem__(self, agent_id: str, value: float) -> None:
+        record = self._scorer._records.get(agent_id)
+        if record is None:
+            record = TrustRecord(trust_score=value)
+            self._scorer._records[agent_id] = record
+        else:
+            record.trust_score = value
+
+    def __getitem__(self, agent_id: str) -> float:
+        record = self._scorer._records.get(agent_id)
+        if record is None:
+            raise KeyError(agent_id)
+        return record.trust_score
+
+    def get(self, agent_id: str, default: float = 0.5) -> float:
+        record = self._scorer._records.get(agent_id)
+        if record is None:
+            return default
+        return record.trust_score
 
 
 class MessageAuthenticator:
