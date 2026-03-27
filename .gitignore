@@ -19,4 +19,4 @@ venv/
 # /desktop/src-tauri/binaries
 # /desktop/src-tauri/target
 # /desktop/src-tauri/src-tauri
-# /desktop/
+/desktop/
