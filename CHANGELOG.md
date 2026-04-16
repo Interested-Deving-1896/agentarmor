@@ -2,6 +2,45 @@
 
 All notable changes to AgentArmor are documented in this file.
 
+## [0.6.0] — 2026-04-16
+
+### 🚀 L7 Inter-Agent Layer: Full Hardening
+
+Five components replace the basic HMAC-only implementation with production-grade inter-agent security. **18 test cases** validate the hardened layer.
+
+#### T1: Replay Prevention
+- Mandatory `timestamp` (unix epoch) and `nonce` (32 hex chars) on every inter-agent message
+- `NonceRegistry` with TTL=600s, cap at 10,000 entries, automatic expired sweep
+- `MAX_CLOCK_SKEW` = 300 seconds — messages older than 5 minutes are rejected
+- Returns specific `VerifyResult` enum: `ALLOW`, `REPLAY_EXPIRED`, `REPLAY_DETECTED`, `TAMPERED`
+
+#### T2: Delegation Chain Authorization
+- `DelegationCertificate` dataclass with HMAC-signed fields (scope, depth, TTL, task description)
+- `max_depth` default = 3 — prevents infinite recursive delegation (SentinelAgent attack vector)
+- Scope restriction: delegated agents can only call actions listed in `authorized_scope`
+- Certificate TTL capped at 1 hour
+
+#### T3: Directed-Pair Trust with Hourly Decay
+- Trust is per directed pair (A→B), not per agent globally
+- Hourly decay: `effective = stored × (0.98 ^ hours_inactive)`
+- Event-specific deltas: `CERT_TAMPERED` = -0.40, `REPLAY_DETECTED` = -0.30, `MESSAGE_VERIFIED` = +0.02
+- Trust-gated tiers: ≥0.7 ALLOW, 0.4–0.7 enhanced logging, 0.2–0.4 re-verification, <0.2 BLOCK
+
+#### T4: Scope Binding
+- `ScopeManifest` per agent: `global_scope` (allowed actions) + `forbidden_always` (hard deny)
+- Wildcard matching support (`web_*` matches `web_search`)
+- Prevents privilege escalation through delegation — you cannot delegate permissions you don't own
+
+#### T5: Behavioral Anomaly Detection
+- `BehavioralBaseline` with rolling window of 20 actions per peer
+- Actions categorized: read, write, network, system
+- Anomaly score 0.0 (normal) to 1.0 (completely anomalous)
+- Score > 0.7: emit HIGH warning event; Score > 0.9: BLOCK + CRITICAL + trust penalty
+
+### Files
+- **New:** `src/agentarmor/layers/interagent/l7_interagent.py`
+- **New:** `desktop/sidecar/test_l7_validation.py` (18 checks)
+
 ## [0.5.0] — 2026-04-16
 
 ### 🚀 Major: Production-Grade Layer Hardening

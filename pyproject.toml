@@ -1,6 +1,6 @@
 [project]
 name = "agentarmor-core"
-version = "0.5.0"
+version = "0.6.0"
 description = "Comprehensive security framework for agentic AI applications — 8-layer defense-in-depth."
 readme = "README.md"
 license = { text = "Apache-2.0" }

@@ -1,6 +1,6 @@
-# Hardened Security Layers — v0.5.0
+# Hardened Security Layers — v0.6.0
 
-AgentArmor v0.5.0 includes production-grade hardening across all 8 security layers, validated by **127+ adversarial test cases**. This document describes what each layer protects and how to use it.
+AgentArmor v0.6.0 includes production-grade hardening across all 8 security layers, validated by **145+ adversarial test cases**. This document describes what each layer protects and how to use it.
 
 ---
 
@@ -178,17 +178,54 @@ print(f"Findings: {result['findings_count']}, Verdict: {result['verdict']}")
 
 ---
 
-## L7 — Inter-Agent Communication Security
+## L7 — Inter-Agent Communication Security *(Hardened in v0.6.0)*
 
-**What it does:** Secures message passing in multi-agent systems.
+**What it does:** Secures message passing in multi-agent systems through 5 enforcement components.
 
-**Capabilities:**
-- Agent registry — only registered agents can communicate
-- HMAC-SHA256 message signing and verification
-- Trust scoring with time-based decay for dormant agents
-- Min trust score threshold (default: 0.7)
-- Max delegation depth to prevent infinite agent chains
-- Timestamp-bound signatures (5-minute window) prevent replay attacks
+**Components:**
+| Component | What It Does |
+|-----------|-------------|
+| T1: Replay Prevention | Nonce registry (10K cap) + timestamp freshness (300s skew) |
+| T2: Delegation Certificates | HMAC-signed certs with scope restriction + depth limits (max=3) |
+| T3: Directed-Pair Trust | Per-pair trust with 2%/hr decay, event-specific deltas, trust-gated tiers |
+| T4: Scope Binding | Global scope + forbidden actions with wildcard matching |
+| T5: Behavioral Baseline | Rolling window (20 actions) anomaly detection — BLOCK at >0.9 |
+
+**Trust-Gated Tiers:**
+| Score Range | Policy |
+|-------------|--------|
+| 0.7 – 1.0 | ALLOW |
+| 0.4 – 0.7 | ALLOW + enhanced logging |
+| 0.2 – 0.4 | Require re-verification of delegation certificate |
+| 0.0 – 0.2 | BLOCK all messages |
+
+**Usage:**
+```python
+from agentarmor.layers.interagent.l7_interagent import (
+    L7InterAgentLayer,
+    create_delegation,
+)
+
+# Receiver side
+l7 = L7InterAgentLayer(agent_id="agent-b")
+secret = l7.register_peer(
+    peer_id="agent-a",
+    scope=["web_search", "file_read"],
+    forbidden=["admin.*", "database.drop"],
+)
+
+# Sender side — create a signed message
+from agentarmor.layers.interagent.l7_interagent import create_signed_payload
+msg = create_signed_payload("agent-a", "agent-b", "web_search", {"q": "hello"}, secret)
+
+# Receiver verifies
+result, event = l7.verify_incoming(msg)
+print(f"Verdict: {result.value}, Trust: {event.details.get('trust_score')}")
+
+# Delegation: agent-a delegates to agent-c
+cert = create_delegation("agent-a", "agent-c", ["web_search"], secret, max_depth=3)
+result, event = l7.verify_incoming(msg, delegation_cert=cert)
+```
 
 ---
 
@@ -225,5 +262,5 @@ Tamper-proof logging of every security event with BLAKE3 hash chaining and OpenT
 | L4 Planning | 40 adversarial cases | ✅ Pass |
 | L5 Execution | 39 adversarial cases | ✅ Pass |
 | L6 Output | 12 adversarial cases | ✅ Pass |
-| L7 Inter-Agent | Trust decay regression | ✅ Pass |
+| L7 Inter-Agent | 18 adversarial cases | ✅ Pass |
 | L8 Identity | Permission matching | ✅ Pass |
