@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from typing import Any
 
 from agentarmor.core.base import SecurityLayer
 from agentarmor.core.config import IngestionConfig
@@ -91,12 +90,14 @@ CATEGORY_SEVERITY = {
     "obfuscation": 6,
 }
 
-# --- Initialization of D3 (Llama Prompt Guard 2) and D4 (GPT-2 Perplexity) ---
+# --- Initialization of D3 (DeBERTa Prompt Injection Classifier) and D4 (GPT-2 Perplexity) ---
+# Replaced gated meta-llama/Llama-Prompt-Guard-2-22M (401 on HF) with
+# protectai/deberta-v3-base-prompt-injection-v2 — public, ungated, 600K+ pairs.
 try:
     from transformers import pipeline as hf_pipeline
     _pg_classifier = hf_pipeline(
         "text-classification",
-        model="meta-llama/Llama-Prompt-Guard-2-22M",
+        model="protectai/deberta-v3-base-prompt-injection-v2",
         device=-1,
         truncation=True,
         max_length=512,
@@ -105,6 +106,9 @@ try:
 except Exception as e:
     print(f"AgentArmor L1 (D3) skipped: {e}")
     PROMPT_GUARD_AVAILABLE = False
+
+# DeBERTa label mapping: LABEL_1 = injection, LABEL_0 = safe
+_DEBERTA_LABEL_MAP = {"LABEL_1": "INJECTION", "LABEL_0": "SAFE"}
 
 
 try:
@@ -160,11 +164,13 @@ def normalize_and_disarm(text: str) -> tuple[str, list[str]]:
 
 
 def classify_with_prompt_guard(text: str) -> tuple[str, float]:
-    """D3 protection step: Semantic analysis using Llama Prompt Guard 2."""
+    """D3 protection step: Semantic analysis using DeBERTa prompt injection classifier."""
     if not PROMPT_GUARD_AVAILABLE:
         return ("UNKNOWN", 0.0)
     result = _pg_classifier(text[:512])[0]
-    return result["label"], result["score"]
+    # Normalize DeBERTa labels to canonical names
+    label = _DEBERTA_LABEL_MAP.get(result["label"], result["label"])
+    return label, result["score"]
 
 
 def compute_perplexity(text: str) -> float:
@@ -186,7 +192,7 @@ class IngestionLayer(SecurityLayer):
     async def process(self, event: AgentEvent) -> LayerResult:
         import time
         start_time = time.time()
-        
+
         if not self.config.enabled:
             return LayerResult(layer=self.name, verdict=SecurityVerdict.ALLOW, message="Layer disabled")
 
@@ -214,7 +220,7 @@ class IngestionLayer(SecurityLayer):
         threat_score = 0
         if d1_anomalies:
             threat_score += 2
-        
+
         # --- D2 Synactic Patterns ---
         d2_hits = []
         for category, patterns in L1_PATTERNS.items():
@@ -239,7 +245,7 @@ class IngestionLayer(SecurityLayer):
         pg_label, pg_score = classify_with_prompt_guard(normalized)
         details["classifier_label"] = pg_label
         details["classifier_confidence"] = pg_score
-        
+
         if pg_label in ("INJECTION", "JAILBREAK"):
             if pg_score >= 0.85:
                 # Same severity as Category D jailbreak
@@ -303,7 +309,7 @@ class IngestionLayer(SecurityLayer):
             msg = "Minor anomalies detected. Request allowed."
         else:
             msg = "Input cleanly passed all L1 checks."
-            
+
         details["processing_ms"] = round((time.time() - start_time) * 1000, 2)
 
         return LayerResult(

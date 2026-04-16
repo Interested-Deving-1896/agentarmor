@@ -16,7 +16,15 @@ htmlcov/
 venv/
 *.log
 .DS_Store
-# /desktop/src-tauri/binaries
-# /desktop/src-tauri/target
-# /desktop/src-tauri/src-tauri
+
+# Internal hardening specs (not for public repo)
+AgentArmor_*_Spec.md
+AgentArmor_*_Hardening_Spec.md
+
+# Temp test artifacts
+tmp_conv_test.py
+test_l6.log
+setup_claude_code.sh
+
+# Desktop app (separate private repo)
 /desktop/

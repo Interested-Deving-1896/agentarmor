@@ -58,60 +58,70 @@ for injection attempts, malicious payloads, and oversized inputs.
 - Source provenance tracking
 - Configurable size limits
 
-### L2 — Memory & Storage Security
+### L2 — Memory & Storage Security *(Hardened in v0.5.0)*
 **File:** `src/agentarmor/layers/storage/encryption.py`
 
 Protects data at rest in vector databases, knowledge graphs, and caches.
 
 - AES-256-GCM authenticated encryption (provides both confidentiality + integrity)
 - BLAKE3 hash chaining for tamper detection
+- HMAC-based MAC signatures on all stored events and messages
+- Automatic `L2_TAMPER_ALERT` flagging when MAC verification fails
 - Namespace-based access isolation
 - Detects memory poisoning: if a retrieved document's hash doesn't match, CRITICAL deny
 
-### L3 — Context Assembly Security
+### L3 — Context Assembly Security *(Hardened in v0.5.0)*
 **File:** `src/agentarmor/layers/context/assembler.py`
 
-Protects the LLM's context window construction.
+Protects the LLM's context window construction with production-grade enforcement.
 
-- **Instruction-data separation**: structurally marks system instructions vs. user data,
-  analogous to parameterized queries in SQL
-- **Canary tokens**: embeds unique secret tokens in system prompts; if they appear
-  in outputs, the system prompt was leaked
-- **Prompt hardening**: appends immutable security directives to system prompts
+- **GoalLock Anchoring**: Anchors the agent's core purpose at conversation start; detects semantic goal drift across turns by comparing response alignment with the original directive
+- **CanaryVault**: Injects multiple unique session-scoped canary tokens into system prompts; if any appear in outputs, the system prompt was leaked and the response is blocked
+- **Tiered Context Assembly**: Structurally separates system instructions from user data with enforced boundaries, preventing privilege escalation through data injection
+- **Template Injection Stripping**: Detects and removes structural template injection patterns before they reach the LLM
+- **Datamarking**: Tags user-provided content with markers that prevent it from being interpreted as system-level instructions
 - Context token count enforcement
+- Validated against 48 adversarial test cases
 
-### L4 — Reasoning & Plan Validation
-**File:** `src/agentarmor/layers/planning/validator.py`
+### L4 — Reasoning & Plan Validation *(Hardened in v0.5.0)*
+**File:** `src/agentarmor/layers/planning/validator.py`, `layers/planning/l4_planning.py`
 
 Intercepts the agent's planned actions before they execute.
 
-- Action risk scoring (READ=1 → WRITE=3 → DELETE=7 → EXECUTE=8 → ADMIN=10)
-- Hard-deny for EXECUTE (8) and ADMIN (10) actions
+- **ActionChainTracker**: Detects multi-step attack patterns across a session — reconnaissance followed by privilege escalation followed by data exfiltration triggers an automatic block
+- **Semantic Risk Scoring**: Evaluates action intent and target sensitivity, not just the verb. `read.file /etc/shadow` is correctly scored as higher risk than `delete.file /tmp/cache`
+- Hard-deny for EXECUTE (8+) and ADMIN (10) actions
 - ESCALATE (human approval) for DELETE (7) actions
-- Bulk operation detection (>3 deletes in a plan)
+- Bulk operation detection (coordinated destructive actions)
 - Configurable chain depth limits (prevent infinite loops)
 - Explicit allow/deny action lists with glob pattern support
+- Validated against 40 adversarial test cases
 
-### L5 — Action Execution Control
-**File:** `src/agentarmor/layers/execution/sandbox.py`
+### L5 — Action Execution Control *(Hardened in v0.5.0)*
+**File:** `src/agentarmor/layers/execution/l5_execution.py`
 
-Controls how and whether agent actions execute.
+Controls how and whether agent actions execute through five enforcement domains.
 
-- Per-action and global rate limiting (sliding window)
-- Network egress control — blocks all outbound HTTP by default
-- Hostname allowlist for controlled external access
-- Human approval gates with async callback
-- Conditional approval rules (approve if amount > $100)
+- **E1: Network Policy** — DNS resolution with private IP blocking (SSRF/DNS rebinding defense), protocol enforcement (blocks `file://`, `gopher://`, etc.), domain allowlist/blocklist with wildcard support
+- **E2: Rate Limiting** — Token bucket per tool action with automatic circuit breaker on failure streaks
+- **E3: Resource Budget** — Per-execution timeout enforcement + input/output size limits
+- **E4: Output Sanitizer** — UTF-8 normalization, binary content stripping, safe truncation
+- **E5: Side-Effect Auditor** — Immutable SHA-256-hashed execution records for forensic analysis
+- Human approval gates with async callback for high-risk operations
+- Validated against 39 adversarial test cases
 
-### L6 — Output Filter
+### L6 — Output Filter *(Hardened in v0.5.0)*
 **File:** `src/agentarmor/layers/output/filter.py`
 
-Post-processes agent output before it reaches users or downstream systems.
+Post-processes agent output before it reaches users or downstream systems through a 5-scanner pipeline.
 
-- PII detection and redaction using Microsoft Presidio (production-grade NLP)
-- Regex fallback for: email, phone, SSN, credit card, API keys
-- Sensitivity pattern blocking (passwords, tokens, secrets)
-- Custom pattern support
+- **O1: Credential Scanner** — Detects and redacts credentials (cloud provider keys, JWTs, database connection strings, API tokens) with zero-false-positive design. Always active.
+- **O2: PII Scanner** — Confidence-gated Presidio integration with per-entity threshold tuning to minimize false positives while catching real PII
+- **O3: Harmful Content Detector** — Detects jailbreak mode markers, system prompt leakage, and unsafe content patterns (defense-in-depth with L3 canary detection)
+- **O4: Semantic Exfiltration Detector** — Session-scoped tracking that flags patterns of bulk PII or credential extraction across multiple responses
+- **O5: Schema Validation** — Structure enforcement for agent outputs
+- Full streaming support with buffer-and-flush strategy for SSE responses
+- Validated against 12 adversarial test cases
 
 ### L7 — Inter-Agent Communication Security
 **File:** `src/agentarmor/layers/interagent/trust.py`

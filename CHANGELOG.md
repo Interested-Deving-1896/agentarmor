@@ -2,6 +2,55 @@
 
 All notable changes to AgentArmor are documented in this file.
 
+## [0.5.0] — 2026-04-16
+
+### 🚀 Major: Production-Grade Layer Hardening
+
+This release upgrades L2–L6 from basic implementations to adversarially-tested enforcement engines.  
+**127+ test cases** validate the hardened layers across prompt injection, goal hijacking, multi-step attacks, credential leaks, and semantic exfiltration.
+
+#### L2: Encrypted Storage with Tamper Detection
+- All data stored in Studio's SQLite database is now AES-256-GCM encrypted
+- HMAC-based MAC signatures on all events and messages for tamper detection
+- Automatic `L2_TAMPER_ALERT` flagging when MAC verification fails
+
+#### L3: Hardened Context Assembly
+- **GoalLock** — Anchors agent purpose at conversation start; detects goal drift across turns
+- **CanaryVault** — Injects multiple unique canary tokens per session; detects system prompt leakage
+- **Tiered Context Assembly** — Structural separation of system instructions vs. user data
+- **Template Injection Stripping** — Removes structural template injection before LLM processing
+- **Datamarking** — Tags user-provided data to prevent privilege escalation
+- Validated against 48 adversarial test cases
+
+#### L4: Hardened Planning & Reasoning
+- **ActionChainTracker** — Detects multi-step attack patterns (recon → escalation → exfiltration)
+- **Semantic Risk Scoring** — Evaluates action intent and target sensitivity, not just verbs
+- **Param-Aware Scoring** — `read.file /etc/shadow` scores higher than `delete.file /tmp/cache`
+- **Bulk Operation Detection** — Flags coordinated destructive actions
+- Validated against 40 adversarial test cases
+
+#### L5: Hardened Execution Control (5-Domain Enforcement)
+- **E1: Network Policy** — DNS resolution + private IP check + protocol enforcement + domain allowlist/blocklist
+- **E2: Rate Limiting** — Token bucket per tool with circuit breaker on failure streaks
+- **E3: Resource Budget** — Execution timeout + input/output size limits
+- **E4: Output Sanitizer** — UTF-8 normalization + binary stripping + truncation
+- **E5: Side-Effect Auditor** — Immutable SHA-256-hashed execution records
+- DNS rebinding protection (blocks resolution to private IPs)
+- Validated against 39 adversarial test cases
+
+#### L6: Hardened Output Security (5-Scanner Pipeline)
+- **O1: Credential Scanner** — 13+ regex patterns (AWS, JWT, DB strings, GitHub/Slack/Stripe tokens) with zero-false-positive design
+- **O2: PII Scanner** — Confidence-gated Presidio integration with per-entity thresholds
+- **O3: Harmful Content Detector** — Jailbreak markers, system prompt leakage, CBRN patterns
+- **O4: Semantic Exfiltration Detector** — Cross-response tracking detects bulk PII/credential extraction
+- **O5: Schema Validation** — Structure enforcement for agent outputs
+- Full streaming support with buffer-and-flush strategy
+- Validated against 12 adversarial test cases
+
+### Other Changes
+- Version bumped to 0.5.0
+- Updated documentation across all docs
+
 ## [0.4.1] — 2026-03-23
 
 ### Bug Fixes

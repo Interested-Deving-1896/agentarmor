@@ -1,5 +1,7 @@
 # Quick Start Guide
 
+> **v0.5.0** — This release includes production-grade hardening for L2–L6. See [Hardened Layers](hardened_layers.md) for details.
+
 ## Installation
 
 ```bash
