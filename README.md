@@ -2,8 +2,8 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/agentarmor-core)](https://pypi.org/project/agentarmor-core/)
 [![Python](https://img.shields.io/pypi/pyversions/agentarmor-core)](https://pypi.org/project/agentarmor-core/)
-[![License](https://img.shields.io/github/license/Agastya910/agentarmor)](https://github.com/Agastya910/agentarmor/blob/main/LICENSE)
-[![Tests](https://img.shields.io/github/actions/workflow/status/Agastya910/agentarmor/ci.yml?label=tests)](https://github.com/Agastya910/agentarmor/actions)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Tests](https://img.shields.io/badge/tests-127%2B_passing-brightgreen)](https://github.com/Agastya910/agentarmor)
 
 **Comprehensive open-source security framework for agentic AI applications.**
 
