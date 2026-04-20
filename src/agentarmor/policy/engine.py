@@ -59,10 +59,7 @@ class ConditionEvaluator:
         """Evaluate all conditions (AND logic). Returns True if all conditions pass."""
         if not conditions:
             return True
-        for cond in conditions:
-            if not ConditionEvaluator._evaluate_single(cond, event):
-                return False
-        return True
+        return all(ConditionEvaluator._evaluate_single(cond, event) for cond in conditions)
 
     @staticmethod
     def _evaluate_single(condition: dict[str, Any], event: AgentEvent) -> bool:
@@ -146,9 +143,9 @@ class PolicyEngine:
                 return SecurityVerdict.DENY, f"Action '{action}' is globally denied"
 
         # Global allowed actions (if specified, non-listed actions are denied)
-        if self._policy.global_allowed_actions:
-            if not any(self._match_pattern(a, action) for a in self._policy.global_allowed_actions):
-                return SecurityVerdict.DENY, f"Action '{action}' not in global allow list"
+        if (self._policy.global_allowed_actions
+                and not any(self._match_pattern(a, action) for a in self._policy.global_allowed_actions)):
+            return SecurityVerdict.DENY, f"Action '{action}' not in global allow list"
 
         # Human approval required
         for pattern in self._policy.require_human_approval_for:

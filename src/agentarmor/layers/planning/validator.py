@@ -13,11 +13,14 @@ ACTION_RISK_MAP: dict[str, ActionCategory] = {
     "search": ActionCategory.READ, "query": ActionCategory.READ, "fetch": ActionCategory.READ,
     "write": ActionCategory.WRITE, "create": ActionCategory.WRITE, "update": ActionCategory.WRITE,
     "insert": ActionCategory.WRITE, "put": ActionCategory.WRITE,
-    "delete": ActionCategory.DELETE, "drop": ActionCategory.DELETE, "remove": ActionCategory.DELETE, "truncate": ActionCategory.DELETE,
-    "execute": ActionCategory.EXECUTE, "run": ActionCategory.EXECUTE, "eval": ActionCategory.EXECUTE, "shell": ActionCategory.EXECUTE,
+    "delete": ActionCategory.DELETE, "drop": ActionCategory.DELETE,
+    "remove": ActionCategory.DELETE, "truncate": ActionCategory.DELETE,
+    "execute": ActionCategory.EXECUTE, "run": ActionCategory.EXECUTE,
+    "eval": ActionCategory.EXECUTE, "shell": ActionCategory.EXECUTE,
     "send": ActionCategory.TRANSFER, "transfer": ActionCategory.TRANSFER, "pay": ActionCategory.TRANSFER,
     "email": ActionCategory.COMMUNICATE, "message": ActionCategory.COMMUNICATE, "post": ActionCategory.COMMUNICATE,
-    "grant": ActionCategory.ADMIN, "revoke": ActionCategory.ADMIN, "chmod": ActionCategory.ADMIN, "admin": ActionCategory.ADMIN,
+    "grant": ActionCategory.ADMIN, "revoke": ActionCategory.ADMIN,
+    "chmod": ActionCategory.ADMIN, "admin": ActionCategory.ADMIN,
 }
 CATEGORY_RISK: dict[ActionCategory, int] = {
     ActionCategory.READ: 1, ActionCategory.WRITE: 3, ActionCategory.COMMUNICATE: 4,
@@ -48,7 +51,10 @@ class PlanningLayer(SecurityLayer):
                         message=f"Action '{action}' matches denied pattern '{denied}'")
 
         if self.config.allowed_actions:
-            allowed = any(perm == action or (perm.endswith("*") and action.startswith(perm[:-1])) for perm in self.config.allowed_actions)
+            allowed = any(
+                perm == action or (perm.endswith("*") and action.startswith(perm[:-1]))
+                for perm in self.config.allowed_actions
+            )
             if not allowed:
                 return LayerResult(layer=self.name, verdict=SecurityVerdict.DENY, threat_level=ThreatLevel.MEDIUM,
                     message=f"Action '{action}' not in allowed list")
@@ -65,7 +71,10 @@ class PlanningLayer(SecurityLayer):
         event.metadata["risk_assessment"] = risk.model_dump()
 
         if composite_score >= 7:
-            findings.append(f"High-risk action: {category.value} (composite={composite_score:.1f}, verb={verb_score}, target_mult={target_multiplier:.1f})")
+            findings.append(
+                f"High-risk action: {category.value} "
+                f"(composite={composite_score:.1f}, verb={verb_score}, target_mult={target_multiplier:.1f})"
+            )
 
         chain_depth = event.context.get("chain_depth", 0)
         if chain_depth > self.config.max_chain_depth:

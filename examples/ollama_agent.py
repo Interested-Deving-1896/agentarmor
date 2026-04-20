@@ -18,7 +18,6 @@ from typing import Any
 import ollama
 
 from agentarmor import AgentArmor, AgentEvent, ArmorConfig
-from agentarmor.core.exceptions import PolicyViolationError
 
 # ─────────────────────────────────────────────
 # 1. Configure AgentArmor
@@ -205,7 +204,7 @@ async def execute_tool_with_armor(tool_name: str, tool_args: dict[str, Any]) -> 
     )
     output_scan = await armor.scan_output(output_event)
     if output_scan.modified_data:
-        print(f"  🔏 PII redacted from tool output")
+        print("  🔏 PII redacted from tool output")
         return output_scan.modified_data
 
     return json.dumps(tool_result)
@@ -236,7 +235,7 @@ async def run_agent(user_message: str, model: str = "qwen2:7b-instruct-q4_0") ->
     client = ollama.Client()
 
     # Agentic loop — run until no more tool calls
-    for iteration in range(10):  # max 10 iterations to prevent infinite loops
+    for _ in range(10):  # max 10 iterations to prevent infinite loops
         response = client.chat(
             model=model,
             messages=messages,
@@ -256,7 +255,7 @@ async def run_agent(user_message: str, model: str = "qwen2:7b-instruct-q4_0") ->
             )
             out_result = await armor.scan_output(output_event)
             if out_result.modified_data:
-                print(f"  🔏 PII redacted from final answer")
+                print("  🔏 PII redacted from final answer")
                 final_answer = out_result.modified_data
             print(f"\nAgent: {final_answer}")
             return final_answer

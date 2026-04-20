@@ -58,9 +58,9 @@ class ApprovalGate:
         for rule in self._rules:
             rule_action = rule.get("action", "")
             condition = rule.get("condition", "")
-            if rule_action and rule_action != event.action:
-                if not (rule_action.endswith("*") and event.action.startswith(rule_action[:-1])):
-                    continue
+            if (rule_action and rule_action != event.action
+                    and not (rule_action.endswith("*") and event.action.startswith(rule_action[:-1]))):
+                continue
             if condition:
                 if self._evaluate_condition(condition, event):
                     return True
@@ -81,10 +81,14 @@ class ApprovalGate:
                 actual = event.params.get(field, event.context.get(field))
                 if actual is None:
                     return False
-                if op == ">": return float(actual) > float(value)
-                elif op == "<": return float(actual) < float(value)
-                elif op == "==": return str(actual) == value
-                elif op == "!=": return str(actual) != value
+                if op == ">":
+                    return float(actual) > float(value)
+                elif op == "<":
+                    return float(actual) < float(value)
+                elif op == "==":
+                    return str(actual) == value
+                elif op == "!=":
+                    return str(actual) != value
         except (ValueError, TypeError):
             pass
         return False
@@ -115,7 +119,10 @@ class ExecutionLayer(SecurityLayer):
         self.config = config or ExecutionConfig()
         self.rate_limiter = RateLimiter(limits=self.config.rate_limits, window_seconds=60)
         self.approval_gate = ApprovalGate(rules=self.config.require_human_approval)
-        self.network_policy = NetworkPolicy(egress_allowed=self.config.network_egress_allowed, allowed_hosts=self.config.allowed_hosts)
+        self.network_policy = NetworkPolicy(
+            egress_allowed=self.config.network_egress_allowed,
+            allowed_hosts=self.config.allowed_hosts,
+        )
 
     async def process(self, event: AgentEvent) -> LayerResult:
         if not self.config.enabled:

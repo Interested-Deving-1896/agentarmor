@@ -17,7 +17,6 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, NamedTuple
 
-
 # =====================================================================
 # A1: VERB RISK TABLE
 # =====================================================================
@@ -121,7 +120,10 @@ RESOURCE_SENSITIVITY_PATTERNS: list[tuple[re.Pattern, float, str]] = [
     (re.compile(r'(localhost|127\.0\.0\.1):(\d+)', re.I), 0.9, "SSRF_internal"),
 
     # Database privilege tables (0.85–0.95)
-    (re.compile(r'(mysql\.user|pg_shadow|sys\.server_principals|information_schema\.user_privileges)', re.I), 0.95, "db_privilege_table"),
+    (
+        re.compile(r'(mysql\.user|pg_shadow|sys\.server_principals|information_schema\.user_privileges)', re.I),
+        0.95, "db_privilege_table",
+    ),
     (re.compile(r'(auth_user|django_admin|admin_users|superusers)', re.I), 0.90, "auth_table"),
 
     # Credential and key patterns in SQL or paths (0.80–0.90)
@@ -242,7 +244,10 @@ class InjectionFinding(NamedTuple):
 
 # SQL Injection patterns
 SQL_INJECTION_PATTERNS: list[tuple[re.Pattern, float, str]] = [
-    (re.compile(r";\s*(drop|delete|truncate|insert|update|grant|revoke|create|alter)\b", re.I), 0.95, "SQLi_stacked_query"),
+    (
+        re.compile(r";\s*(drop|delete|truncate|insert|update|grant|revoke|create|alter)", re.I),
+        0.95, "SQLi_stacked_query",
+    ),
     (re.compile(r"\bunion\s+(all\s+)?select\b", re.I), 0.95, "SQLi_UNION"),
     (re.compile(r"'[\s]*or[\s]+'?[0-9a-z]+'?\s*=\s*'?[0-9a-z]+'?", re.I), 0.90, "SQLi_boolean_or"),
     (re.compile(r"--[\s]*$|;\s*--", re.M), 0.75, "SQLi_comment_bypass"),

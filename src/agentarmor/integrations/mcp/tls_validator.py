@@ -106,8 +106,10 @@ class TLSValidator:
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
 
-            with socket.create_connection((hostname, port), timeout=timeout) as sock:
-                with ctx.wrap_socket(sock, server_hostname=hostname) as ssock:
+            with (
+                socket.create_connection((hostname, port), timeout=timeout) as sock,
+                ctx.wrap_socket(sock, server_hostname=hostname) as ssock,
+            ):
                     tls_version = ssock.version()
                     cipher = ssock.cipher()
                     cert = ssock.getpeercert()

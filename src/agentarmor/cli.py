@@ -27,7 +27,11 @@ def cmd_validate(args: argparse.Namespace) -> None:
         print(f"Configuration valid: {path}")
         print(f"  Agent type: {config.agent_type}")
         print(f"  Risk level: {config.risk_level}")
-        print(f"  Layers enabled: {sum(1 for l in [config.ingestion, config.storage, config.context, config.planning, config.execution, config.output, config.interagent, config.identity] if l.enabled)}/8")
+        layers = [
+            config.ingestion, config.storage, config.context, config.planning,
+            config.execution, config.output, config.interagent, config.identity,
+        ]
+        print(f"  Layers enabled: {sum(1 for lyr in layers if lyr.enabled)}/8")
     except Exception as e:
         print(f"Validation failed: {e}", file=sys.stderr)
         sys.exit(1)

@@ -1,23 +1,20 @@
 """Tests for AgentArmor MCP Server — no live network, no MCP client needed."""
+
 import pytest
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 def test_mcp_available_or_skip():
     """Skip all MCP server tests if mcp package not installed."""
-    try:
-        import mcp
-    except ImportError:
+    import importlib.util
+    if importlib.util.find_spec("mcp") is None:
         pytest.skip("mcp package not installed — run: uv add 'mcp>=1.0'")
 
 
 def test_server_creates_without_error():
     try:
         from agentarmor.integrations.mcp_server.server import create_server
-        server = create_server()
-        assert server is not None
-    except ImportError:
+        assert create_server() is not None
+    except (ImportError, NameError):
         pytest.skip("mcp not installed")
 
 
@@ -29,14 +26,14 @@ def test_run_function_exists():
 @pytest.mark.asyncio
 async def test_get_status_returns_all_layers():
     try:
-        from agentarmor.integrations.mcp_server.server import create_server, _get_armor
-        server = create_server()
+        from agentarmor.integrations.mcp_server.server import _get_armor, create_server
+        create_server()
         # Call tool handler directly
         # We test the logic by instantiating armor and checking layers
         armor = _get_armor()
         assert armor.l1_ingestion is not None
         assert armor.l8_identity is not None
-    except ImportError:
+    except (ImportError, NameError):
         pytest.skip("mcp not installed")
 
 

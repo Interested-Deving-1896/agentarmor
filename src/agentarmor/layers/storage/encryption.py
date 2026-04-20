@@ -118,7 +118,10 @@ class StorageLayer(SecurityLayer):
                 return LayerResult(layer=self.name, verdict=SecurityVerdict.DENY, threat_level=ThreatLevel.MEDIUM,
                     message="Data expired (TTL exceeded)")
         if findings:
-            return LayerResult(layer=self.name, verdict=SecurityVerdict.AUDIT, threat_level=ThreatLevel.LOW, message="; ".join(findings))
+            return LayerResult(
+                layer=self.name, verdict=SecurityVerdict.AUDIT,
+                threat_level=ThreatLevel.LOW, message="; ".join(findings),
+            )
         return LayerResult(layer=self.name, verdict=SecurityVerdict.ALLOW, message="Storage check passed")
 
     def encrypt_for_storage(self, data: bytes, namespace: str = "default") -> tuple[bytes, str]:

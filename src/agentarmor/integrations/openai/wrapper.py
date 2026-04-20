@@ -55,7 +55,7 @@ def secure_openai_client(client: Any, armor: Any, agent_id: str = "openai-agent"
                 action="openai.chat.completions.output",
                 output_data=content,
             )
-            output_result = asyncio.get_event_loop().run_until_complete(armor.scan_output(output_event))
+            asyncio.get_event_loop().run_until_complete(armor.scan_output(output_event))
             # Could modify response here if PII detected
 
         return response

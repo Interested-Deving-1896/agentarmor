@@ -1,22 +1,18 @@
 """Tests for AgentArmor core pipeline and all security layers."""
 
-import asyncio
 import pytest
-from agentarmor import AgentArmor, AgentEvent, ArmorConfig, SecurityVerdict
-from agentarmor.core.types import ThreatLevel, PipelineResult
-from agentarmor.layers.ingestion.scanner import IngestionLayer
-from agentarmor.layers.storage.encryption import EncryptionManager, StorageLayer, IntegrityChecker
-from agentarmor.layers.context.assembler import ContextLayer, CanaryTokenManager
-from agentarmor.layers.planning.validator import PlanningLayer
-from agentarmor.layers.execution.sandbox import ExecutionLayer, RateLimiter
-from agentarmor.layers.output.filter import OutputLayer, FallbackPIIRedactor
-from agentarmor.layers.interagent.trust import InterAgentLayer, TrustScorer
-from agentarmor.layers.identity.manager import IdentityLayer
-from agentarmor.policy.engine import PolicyEngine, SecurityPolicy
-from agentarmor.audit.logger import TamperProofLog
-from agentarmor.integrations.openclaw import OpenClawGuard
-from agentarmor.integrations.mcp import MCPGuard
 
+from agentarmor import AgentArmor, AgentEvent, ArmorConfig, SecurityVerdict
+from agentarmor.audit.logger import TamperProofLog
+from agentarmor.layers.context.assembler import CanaryTokenManager, ContextLayer
+from agentarmor.layers.execution.sandbox import RateLimiter
+from agentarmor.layers.identity.manager import IdentityLayer
+from agentarmor.layers.ingestion.scanner import IngestionLayer
+from agentarmor.layers.interagent.trust import TrustScorer
+from agentarmor.layers.output.filter import FallbackPIIRedactor
+from agentarmor.layers.planning.validator import PlanningLayer
+from agentarmor.layers.storage.encryption import EncryptionManager, IntegrityChecker
+from agentarmor.policy.engine import PolicyEngine, SecurityPolicy
 
 # ============================================================
 # Layer 1: Ingestion Tests
@@ -93,7 +89,7 @@ class TestEncryptionManager:
         mgr1 = EncryptionManager(key=EncryptionManager.generate_key())
         mgr2 = EncryptionManager(key=EncryptionManager.generate_key())
         encrypted = mgr1.encrypt(b"secret")
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="."):
             mgr2.decrypt(encrypted)
 
     def test_integrity_check(self):

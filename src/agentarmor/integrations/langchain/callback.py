@@ -68,5 +68,5 @@ class AgentArmorCallback:
             action="langchain.tool.output",
             output_data=output,
         )
-        result = asyncio.get_event_loop().run_until_complete(self._armor.scan_output(event))
+        asyncio.get_event_loop().run_until_complete(self._armor.scan_output(event))
         # If PII is found, we could modify the output here

@@ -1,22 +1,25 @@
+import hashlib
+import logging
 import os
 import platform
 import uuid
-import hashlib
-import logging
 from pathlib import Path
 
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 logger = logging.getLogger(__name__)
 
 # Fallback wrapper for Argon2
 try:
-    from argon2.low_level import hash_secret_raw, Type
+    from argon2.low_level import Type, hash_secret_raw
     ARGON2_AVAILABLE = True
 except ImportError:
     ARGON2_AVAILABLE = False
-    logger.warning("argon2-cffi not installed. Falling back to PBKDF2-HMAC-SHA256 for L2 Storage Key Derivation. Upgrade recommended for security.")
+    logger.warning(
+        "argon2-cffi not installed. Falling back to PBKDF2-HMAC-SHA256 for L2 Storage Key Derivation. "
+        "Upgrade recommended for security."
+    )
 
 # Singletons
 _MASTER_KEY: bytes | None = None
@@ -26,7 +29,7 @@ AGENTARMOR_DIR = Path.home() / ".agentarmor"
 def get_machine_fingerprint() -> bytes:
     """Generate a stable machine-specific identifier."""
     components = []
-    
+
     try:
         if platform.system() == "Darwin":
             import subprocess
@@ -34,7 +37,7 @@ def get_machine_fingerprint() -> bytes:
                 ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"],
                 capture_output=True, text=True
             )
-            uuid_line = [l for l in result.stdout.split("\n") if "IOPlatformUUID" in l]
+            uuid_line = [line for line in result.stdout.split("\n") if "IOPlatformUUID" in line]
             if uuid_line:
                 components.append(uuid_line[0].split('"')[-2])
         elif platform.system() == "Windows":
@@ -47,7 +50,7 @@ def get_machine_fingerprint() -> bytes:
                 components.append(f.read().strip())
     except Exception as e:
         logger.debug(f"Failed to get hardware fingerprint: {e}")
-    
+
     # Always include a fallback file UUID so we are guaranteed entropy even on permission failures
     fallback_path = AGENTARMOR_DIR / "machine.id"
     if not fallback_path.exists():
@@ -64,7 +67,7 @@ def get_machine_fingerprint() -> bytes:
 def derive_master_key(salt: bytes) -> bytes:
     """Derive the 32-byte AES-256 master key."""
     password = get_machine_fingerprint()
-    
+
     if ARGON2_AVAILABLE:
         return hash_secret_raw(
             secret=password,
@@ -125,5 +128,5 @@ def get_api_key_key() -> bytes:
 
 def get_workspace_key(agent_id: str) -> bytes:
     """Key for encrypting the specific agent's workspace SQLite file."""
-    agent_salt = hashlib.sha256(f"workspace:{agent_id}".encode("utf-8")).digest()
+    agent_salt = hashlib.sha256(f"workspace:{agent_id}".encode()).digest()
     return derive_child_key(_get_master_lazy(), b"agentarmor-ws-v1", agent_salt=agent_salt)

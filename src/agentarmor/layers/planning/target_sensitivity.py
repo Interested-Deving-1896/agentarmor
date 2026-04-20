@@ -54,9 +54,8 @@ def get_target_multiplier(params: dict[str, Any]) -> float:
 
     best: float | None = None
     for pattern, multiplier in TARGET_SENSITIVITY_MAP:
-        if fnmatch(target, pattern):
-            if best is None or multiplier > best:
-                best = multiplier
+        if fnmatch(target, pattern) and (best is None or multiplier > best):
+            best = multiplier
     return best if best is not None else DEFAULT_MULTIPLIER
 
 

@@ -15,15 +15,14 @@ import asyncio
 import hashlib
 import ipaddress
 import json
-import re
 import socket
 import time
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import Any, Awaitable, Callable
+from typing import Any
 from urllib.parse import urlparse
-
 
 # =====================================================================
 # E1: NETWORK POLICY ENGINE
@@ -398,7 +397,7 @@ async def execute_with_timeout(
                 timeout=budget.execution_timeout_s,
             )
         return result, True, "ok"
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return {
             "error": f"[L5 TIMEOUT] Tool '{tool_name}' exceeded {budget.execution_timeout_s}s limit. "
                      f"Execution terminated."
@@ -593,11 +592,11 @@ class L5ExecutionLayer:
         l5_verdicts: list[str] = []
 
         # === E1: Network Policy ===
-        _NETWORK_TOOLS = {
+        _network_tools = {
             "tool_web_fetch", "tool_api_call", "tool_web_search",
             "web_fetch", "api_call", "web_search",
         }
-        if outbound_url or tool_name in _NETWORK_TOOLS:
+        if outbound_url or tool_name in _network_tools:
             url = outbound_url or tool_args.get("url", tool_args.get("query", ""))
             if url and isinstance(url, str) and url.startswith(("http", "https", "file", "ftp", "gopher")):
                 net_result = enforce_network_policy(

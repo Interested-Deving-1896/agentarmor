@@ -3,13 +3,13 @@ from __future__ import annotations
 
 import time
 import uuid
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class SecurityVerdict(str, Enum):
+class SecurityVerdict(StrEnum):
     ALLOW = "allow"
     DENY = "deny"
     MODIFY = "modify"
@@ -17,7 +17,7 @@ class SecurityVerdict(str, Enum):
     AUDIT = "audit"
 
 
-class ThreatLevel(str, Enum):
+class ThreatLevel(StrEnum):
     NONE = "none"
     LOW = "low"
     MEDIUM = "medium"
@@ -25,7 +25,7 @@ class ThreatLevel(str, Enum):
     CRITICAL = "critical"
 
 
-class DataClassification(str, Enum):
+class DataClassification(StrEnum):
     PUBLIC = "public"
     INTERNAL = "internal"
     CONFIDENTIAL = "confidential"
@@ -33,7 +33,7 @@ class DataClassification(str, Enum):
     TOP_SECRET = "top_secret"
 
 
-class ActionCategory(str, Enum):
+class ActionCategory(StrEnum):
     READ = "read"
     WRITE = "write"
     DELETE = "delete"
@@ -52,7 +52,7 @@ class RiskScore(BaseModel):
     sensitive_target: bool = False
 
     @classmethod
-    def build(cls, verb_score: int, target_multiplier: float) -> "RiskScore":
+    def build(cls, verb_score: int, target_multiplier: float) -> RiskScore:
         """Convenience constructor that derives composite_score and sensitive_target."""
         return cls(
             verb_score=verb_score,

@@ -9,7 +9,6 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass, field
-from typing import Any
 
 from agentarmor.core.base import SecurityLayer
 from agentarmor.core.config import OutputConfig
@@ -32,20 +31,86 @@ class CredentialPattern:
     severity: str
 
 CREDENTIAL_PATTERNS: list[CredentialPattern] = [
-    CredentialPattern("AWS_ACCESS_KEY", re.compile(r'\b(AKIA|ASIA|AROA|AIDA|ANPA|ANVA|APKA)[A-Z0-9]{16}\b'), "[REDACTED:AWS_ACCESS_KEY]", "critical"),
-    CredentialPattern("AWS_SECRET_KEY", re.compile(r'(?i)aws[_\-\s]*secret[_\-\s]*(?:access[_\-\s]*)?key[_\-\s]*[=:]\s*[\'"]?([A-Za-z0-9/+]{40})[\'"]?'), "[REDACTED:AWS_SECRET_KEY]", "critical"),
-    CredentialPattern("JWT_TOKEN", re.compile(r'\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\b'), "[REDACTED:JWT_TOKEN]", "critical"),
-    CredentialPattern("GENERIC_API_KEY", re.compile(r'(?i)(?:api[_\-]?key|apikey|access[_\-]?token|auth[_\-]?token)[_\-\s]*[=:]\s*[\'"]?([A-Za-z0-9_\-]{20,64})[\'"]?'), "[REDACTED:API_KEY]", "critical"),
-    CredentialPattern("DB_CONNECTION_STRING", re.compile(r'(?i)(?:postgres(?:ql)?|mysql|mongodb|redis|mssql)://[^@\s]+:[^@\s]+@[^\s,\'"]+'), "[REDACTED:DB_CONNECTION_STRING]", "critical"),
-    CredentialPattern("PRIVATE_KEY_PEM", re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'), "[REDACTED:PRIVATE_KEY]", "critical"),
-    CredentialPattern("PASSWORD_ASSIGNMENT", re.compile(r'(?i)(?:password|passwd|pwd|secret)\s*[=:]\s*[\'"]([^\'"]{8,})[\'"]'), "[REDACTED:PASSWORD]", "high"),
-    CredentialPattern("GITHUB_TOKEN", re.compile(r'\bgh[pousr]_[A-Za-z0-9]{36,255}\b'), "[REDACTED:GITHUB_TOKEN]", "critical"),
-    CredentialPattern("SLACK_TOKEN", re.compile(r'\bxox[baprs]-[A-Za-z0-9\-]{10,100}\b'), "[REDACTED:SLACK_TOKEN]", "high"),
-    CredentialPattern("STRIPE_KEY", re.compile(r'\b(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{24,99}\b'), "[REDACTED:STRIPE_KEY]", "critical"),
-    CredentialPattern("DOTENV_SECRET", re.compile(r'(?i)(?:secret|key|token|password|credential)[_A-Z]*\s*=\s*[^\s\n]{8,}'), "[REDACTED:ENV_SECRET]", "high"),
-    CredentialPattern("PRIVATE_IP", re.compile(r'\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|127\.\d{1,3}\.\d{1,3}\.\d{1,3})\b'), "[REDACTED:PRIVATE_IP]", "medium"),
-    CredentialPattern("INTERNAL_PATH", re.compile(r'(?:/home/[a-zA-Z0-9_\-]+/|/root/|/etc/(?:passwd|shadow|sudoers|ssh)|/var/log/|/proc/\d+)'), "[REDACTED:INTERNAL_PATH]", "medium"),
-    CredentialPattern("STACK_TRACE", re.compile(r'(?:File "[^"]+", line \d+|at \w+\.\w+\([^)]+\.(?:py|js|ts|java|cs):\d+\))'), "[REDACTED:STACK_TRACE]", "medium"),
+    CredentialPattern(
+        "AWS_ACCESS_KEY",
+        re.compile(r'\b(AKIA|ASIA|AROA|AIDA|ANPA|ANVA|APKA)[A-Z0-9]{16}\b'),
+        "[REDACTED:AWS_ACCESS_KEY]", "critical",
+    ),
+    CredentialPattern(
+        "AWS_SECRET_KEY",
+        re.compile(
+            r'(?i)aws[_\-\s]*secret[_\-\s]*(?:access[_\-\s]*)?key[_\-\s]*[=:]\s*[\'"]?([A-Za-z0-9/+]{40})[\'"]?'
+        ),
+        "[REDACTED:AWS_SECRET_KEY]", "critical",
+    ),
+    CredentialPattern(
+        "JWT_TOKEN",
+        re.compile(r'\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\b'),
+        "[REDACTED:JWT_TOKEN]", "critical",
+    ),
+    CredentialPattern(
+        "GENERIC_API_KEY",
+        re.compile(
+            r'(?i)(?:api[_\-]?key|apikey|access[_\-]?token|auth[_\-]?token)'
+            r'[_\-\s]*[=:]\s*[\'"]?([A-Za-z0-9_\-]{20,64})[\'"]?'
+        ),
+        "[REDACTED:API_KEY]", "critical",
+    ),
+    CredentialPattern(
+        "DB_CONNECTION_STRING",
+        re.compile(r'(?i)(?:postgres(?:ql)?|mysql|mongodb|redis|mssql)://[^@\s]+:[^@\s]+@[^\s,\'"]+'),
+        "[REDACTED:DB_CONNECTION_STRING]", "critical",
+    ),
+    CredentialPattern(
+        "PRIVATE_KEY_PEM",
+        re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'),
+        "[REDACTED:PRIVATE_KEY]", "critical",
+    ),
+    CredentialPattern(
+        "PASSWORD_ASSIGNMENT",
+        re.compile(r'(?i)(?:password|passwd|pwd|secret)\s*[=:]\s*[\'"]([^\'"]{8,})[\'"]'),
+        "[REDACTED:PASSWORD]", "high",
+    ),
+    CredentialPattern(
+        "GITHUB_TOKEN",
+        re.compile(r'\bgh[pousr]_[A-Za-z0-9]{36,255}\b'),
+        "[REDACTED:GITHUB_TOKEN]", "critical",
+    ),
+    CredentialPattern(
+        "SLACK_TOKEN",
+        re.compile(r'\bxox[baprs]-[A-Za-z0-9\-]{10,100}\b'),
+        "[REDACTED:SLACK_TOKEN]", "high",
+    ),
+    CredentialPattern(
+        "STRIPE_KEY",
+        re.compile(r'\b(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{24,99}\b'),
+        "[REDACTED:STRIPE_KEY]", "critical",
+    ),
+    CredentialPattern(
+        "DOTENV_SECRET",
+        re.compile(r'(?i)(?:secret|key|token|password|credential)[_A-Z]*\s*=\s*[^\s\n]{8,}'),
+        "[REDACTED:ENV_SECRET]", "high",
+    ),
+    CredentialPattern(
+        "PRIVATE_IP",
+        re.compile(
+            r'\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}'
+            r'|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}'
+            r'|192\.168\.\d{1,3}\.\d{1,3}'
+            r'|127\.\d{1,3}\.\d{1,3}\.\d{1,3})\b'
+        ),
+        "[REDACTED:PRIVATE_IP]", "medium",
+    ),
+    CredentialPattern(
+        "INTERNAL_PATH",
+        re.compile(r'(?:/home/[a-zA-Z0-9_\-]+/|/root/|/etc/(?:passwd|shadow|sudoers|ssh)|/var/log/|/proc/\d+)'),
+        "[REDACTED:INTERNAL_PATH]", "medium",
+    ),
+    CredentialPattern(
+        "STACK_TRACE",
+        re.compile(r'(?:File "[^"]+", line \d+|at \w+\.\w+\([^)]+\.(?:py|js|ts|java|cs):\d+\))'),
+        "[REDACTED:STACK_TRACE]", "medium",
+    ),
 ]
 
 def scan_credentials(text: str) -> tuple[str, list[dict]]:
@@ -87,6 +152,26 @@ ENTITY_CONFIDENCE_OVERRIDES = {
 _presidio_analyzer = None
 _presidio_anonymizer = None
 
+_FALLBACK_PII_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'), "[REDACTED:EMAIL]"),
+    (re.compile(r'\b\d{3}-\d{2}-\d{4}\b'), "[REDACTED:SSN]"),
+    (re.compile(r'\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b'), "[REDACTED:PHONE]"),
+    (re.compile(r'\b4[0-9]{12}(?:[0-9]{3})?\b|\b5[1-5][0-9]{14}\b|\b3[47][0-9]{13}\b'), "[REDACTED:CREDIT_CARD]"),
+]
+
+
+class FallbackPIIRedactor:
+    """Regex-based PII redactor used when Presidio is not installed."""
+
+    @classmethod
+    def redact(cls, text: str) -> tuple[str, list[dict]]:
+        findings: list[dict] = []
+        for pattern, replacement in _FALLBACK_PII_PATTERNS:
+            for match in pattern.finditer(text):
+                findings.append({"entity_type": replacement[10:-1], "text": match.group()[:30]})
+            text = pattern.sub(replacement, text)
+        return text, findings
+
 def _get_presidio():
     global _presidio_analyzer, _presidio_anonymizer
     if _presidio_analyzer is None:
@@ -94,7 +179,7 @@ def _get_presidio():
             from presidio_analyzer import AnalyzerEngine
             from presidio_analyzer.nlp_engine import NlpEngineProvider
             from presidio_anonymizer import AnonymizerEngine
-            
+
             # Avoid presidio auto-downloading en_core_web_lg which crashes due to lack of pip
             configuration = {
                 "nlp_engine_name": "spacy",
@@ -111,10 +196,10 @@ def _get_presidio():
 def scan_pii(text: str, enabled_entities: list[str] | None = None) -> tuple[str, list[dict]]:
     if not text or not text.strip():
         return text, []
-    
+
     if enabled_entities is None:
         enabled_entities = ENABLED_PII_ENTITIES
-        
+
     analyzer, anonymizer = _get_presidio()
     if not analyzer or not anonymizer:
         return text, []
@@ -125,7 +210,7 @@ def scan_pii(text: str, enabled_entities: list[str] | None = None) -> tuple[str,
         ph = f"__HDN_{len(placeholders)}__"
         placeholders[ph] = m.group(0)
         return ph
-        
+
     hidden_text = re.sub(r'\[REDACTED:[A-Z_]+\]', hide, text)
 
     global_floor = min([MIN_PII_CONFIDENCE] + list(ENTITY_CONFIDENCE_OVERRIDES.values()))
@@ -142,7 +227,12 @@ def scan_pii(text: str, enabled_entities: list[str] | None = None) -> tuple[str,
         if result.score >= entity_threshold:
             # Prevent PII scanner from flagging strings that were already redacted by Credential Scanner
             matched_text = text[result.start:result.end]
-            if "[REDACTED:" not in matched_text and matched_text not in ["AWS_ACCESS_KEY", "AWS_SECRET_KEY", "PASSWORD", "JWT_TOKEN", "API_KEY", "DB_CONNECTION_STRING", "PRIVATE_KEY", "GITHUB_TOKEN", "SLACK_TOKEN", "STRIPE_KEY", "ENV_SECRET", "PRIVATE_IP", "INTERNAL_PATH", "STACK_TRACE"]:
+            _redacted_names = {
+                "AWS_ACCESS_KEY", "AWS_SECRET_KEY", "PASSWORD", "JWT_TOKEN", "API_KEY",
+                "DB_CONNECTION_STRING", "PRIVATE_KEY", "GITHUB_TOKEN", "SLACK_TOKEN",
+                "STRIPE_KEY", "ENV_SECRET", "PRIVATE_IP", "INTERNAL_PATH", "STACK_TRACE",
+            }
+            if "[REDACTED:" not in matched_text and matched_text not in _redacted_names:
                 filtered_results.append(result)
 
     if not filtered_results:
@@ -159,12 +249,12 @@ def scan_pii(text: str, enabled_entities: list[str] | None = None) -> tuple[str,
             analyzer_results=filtered_results,
             operators=operators,
         )
-        
+
         # Restore hidden tags
         anonymized_text = anonymized.text
         for ph, orig in placeholders.items():
             anonymized_text = anonymized_text.replace(ph, orig)
-            
+
         # Adjust finding positions (rough approx since we hid stuff)
         # We will just return the findings without precise position restoration for now
         findings = [
@@ -186,13 +276,42 @@ def scan_pii(text: str, enabled_entities: list[str] | None = None) -> tuple[str,
 # =============================================================================
 
 HARMFUL_OUTPUT_PATTERNS = [
-    (re.compile(r'(?i)\b(?:synthesize|synthesis|preparation|manufacture)\s+(?:of\s+)?(?:explosives?|nerve\s+agent|sarin|VX\b|anthrax|ricin|fentanyl\s+analog)'), "cbrn_synthesis", "critical"),
-    (re.compile(r'(?i)(?:DAN\s*mode|developer\s*mode|jailbreak\s*mode|unrestricted\s*mode)\s*(?:enabled|activated|on)'), "jailbreak_mode_output", "high"),
-    (re.compile(r'(?i)as\s+(?:an?\s+)?(?:unrestricted|uncensored|unfiltered)\s+(?:AI|LLM|assistant|model)'), "jailbreak_persona_output", "high"),
-    (re.compile(r'(?i)(?:my\s+system\s+prompt\s+(?:says?|is|reads?|states?)|AGENTARMOR-SYSTEM-IMMUTABLE|here\s+is\s+my\s+(?:full\s+)?system\s+prompt)'), "system_prompt_leak", "critical"),
+    (
+        re.compile(
+            r'(?i)\b(?:synthesize|synthesis|preparation|manufacture)\s+(?:of\s+)?'
+            r'(?:explosives?|nerve\s+agent|sarin|VX\b|anthrax|ricin|fentanyl\s+analog)'
+        ),
+        "cbrn_synthesis", "critical",
+    ),
+    (
+        re.compile(
+            r'(?i)(?:DAN\s*mode|developer\s*mode|jailbreak\s*mode|unrestricted\s*mode)\s*(?:enabled|activated|on)'
+        ),
+        "jailbreak_mode_output", "high",
+    ),
+    (
+        re.compile(r'(?i)as\s+(?:an?\s+)?(?:unrestricted|uncensored|unfiltered)\s+(?:AI|LLM|assistant|model)'),
+        "jailbreak_persona_output", "high",
+    ),
+    (
+        re.compile(
+            r'(?i)(?:my\s+system\s+prompt\s+(?:says?|is|reads?|states?)'
+            r'|AGENTARMOR-SYSTEM-IMMUTABLE|here\s+is\s+my\s+(?:full\s+)?system\s+prompt)'
+        ),
+        "system_prompt_leak", "critical",
+    ),
     (re.compile(r'CANARY-[A-Za-z0-9]{8,}'), "canary_leak", "critical"),
-    (re.compile(r'(?i)(?:step[-\s]?by[-\s]?step\s+(?:guide|instructions?)\s+to\s+(?:hack|break\s+into|bypass|circumvent|crack|attack))'), "harmful_instructions", "high"),
-    (re.compile(r'(?i)(?:\d+\s+rows?\s+(?:in\s+set|affected)|INSERT\s+INTO\s+\w+\s+VALUES\s*\()[^\n]{100,}'), "sql_data_dump", "high"),
+    (
+        re.compile(
+            r'(?i)(?:step[-\s]?by[-\s]?step\s+(?:guide|instructions?)\s+to\s+'
+            r'(?:hack|break\s+into|bypass|circumvent|crack|attack))'
+        ),
+        "harmful_instructions", "high",
+    ),
+    (
+        re.compile(r'(?i)(?:\d+\s+rows?\s+(?:in\s+set|affected)|INSERT\s+INTO\s+\w+\s+VALUES\s*\()[^\n]{100,}'),
+        "sql_data_dump", "high",
+    ),
 ]
 
 STRUCTURAL_HARMFUL_PATTERNS = [
@@ -256,10 +375,11 @@ class OutputSecurityContext:
             return True, f"single_response_pii_profile:{distinct_types}_distinct_entity_types"
 
         if self.response_count <= 5 and self.total_pii_entities_redacted >= 10:
-            return True, f"bulk_pii_extraction:{self.total_pii_entities_redacted}_entities_in_{self.response_count}_responses"
+            count = self.total_pii_entities_redacted
+            return True, f"bulk_pii_extraction:{count}_entities_in_{self.response_count}_responses"
 
         if self.total_credentials_redacted >= 1 and self.total_pii_entities_redacted >= 3:
-            return True, f"credential_plus_pii_exfiltration_pattern"
+            return True, "credential_plus_pii_exfiltration_pattern"
 
         return False, "clean"
 
@@ -392,7 +512,7 @@ class OutputLayer(SecurityLayer):
     def __init__(self, config: OutputConfig | None = None):
         self.config = config or OutputConfig()
         self._l6 = L6OutputLayer(
-            agent_id="pipeline", 
+            agent_id="pipeline",
             enable_pii_scan=self.config.pii_redaction,
             enable_harmful_scan=self.config.sensitivity_filtering
         )
@@ -418,14 +538,18 @@ class OutputLayer(SecurityLayer):
             v = SecurityVerdict.ESCALATE
 
         tl = ThreatLevel.NONE
-        if l6_event["threat_level"] == "low": tl = ThreatLevel.LOW
-        elif l6_event["threat_level"] == "medium": tl = ThreatLevel.MEDIUM
-        elif l6_event["threat_level"] == "high": tl = ThreatLevel.HIGH
-        elif l6_event["threat_level"] == "critical": tl = ThreatLevel.CRITICAL
+        if l6_event["threat_level"] == "low":
+            tl = ThreatLevel.LOW
+        elif l6_event["threat_level"] == "medium":
+            tl = ThreatLevel.MEDIUM
+        elif l6_event["threat_level"] == "high":
+            tl = ThreatLevel.HIGH
+        elif l6_event["threat_level"] == "critical":
+            tl = ThreatLevel.CRITICAL
 
         if v == SecurityVerdict.ALLOW and tl == ThreatLevel.NONE:
             return LayerResult(layer=self.name, verdict=SecurityVerdict.ALLOW, message="Output clean")
-        
+
         return LayerResult(
             layer=self.name,
             verdict=v,

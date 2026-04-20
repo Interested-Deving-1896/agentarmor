@@ -40,7 +40,7 @@ class TrustRecord(BaseModel):
     """Per-agent trust state with timestamp for decay computation."""
 
     trust_score: float = 0.5
-    last_interaction_timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
+    last_interaction_timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC))
     interaction_count: int = 0
 
 
@@ -87,13 +87,10 @@ class TrustScorer:
             record = TrustRecord()
             self._records[agent_id] = record
 
-        if success:
-            new_score = min(1.0, record.trust_score + 0.05)
-        else:
-            new_score = max(0.0, record.trust_score - 0.15)
+        new_score = min(1.0, record.trust_score + 0.05) if success else max(0.0, record.trust_score - 0.15)
 
         record.trust_score = new_score
-        record.last_interaction_timestamp = datetime.datetime.now(datetime.timezone.utc)
+        record.last_interaction_timestamp = datetime.datetime.now(datetime.UTC)
         record.interaction_count += 1
 
         self._interactions.setdefault(agent_id, []).append({
@@ -139,7 +136,7 @@ class TrustScorer:
 
     @staticmethod
     def _days_since_last_interaction(record: TrustRecord) -> int:
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.UTC)
         delta = now - record.last_interaction_timestamp
         return max(0, delta.days)
 
@@ -207,7 +204,6 @@ class InterAgentLayer(SecurityLayer):
         if event.event_type not in ("agent_message", "agent_delegate", "agent_response"):
             return LayerResult(layer=self.name, verdict=SecurityVerdict.ALLOW, message="Not an inter-agent event")
 
-        target_agent = event.params.get("target_agent", "")
         source_agent = event.agent_id
         findings: list[str] = []
 
@@ -240,14 +236,13 @@ class InterAgentLayer(SecurityLayer):
                 )
 
         # Trust score check
-        if self.config.trust_scoring:
-            if not self.trust_scorer.is_trusted(source_agent):
-                score = self.trust_scorer.get_score(source_agent)
-                return LayerResult(
-                    layer=self.name, verdict=SecurityVerdict.DENY,
-                    threat_level=ThreatLevel.HIGH,
-                    message=f"Agent '{source_agent}' trust score too low: {score:.2f} < {self.config.min_trust_score}",
-                )
+        if self.config.trust_scoring and not self.trust_scorer.is_trusted(source_agent):
+            score = self.trust_scorer.get_score(source_agent)
+            return LayerResult(
+                layer=self.name, verdict=SecurityVerdict.DENY,
+                threat_level=ThreatLevel.HIGH,
+                message=f"Agent '{source_agent}' trust score too low: {score:.2f} < {self.config.min_trust_score}",
+            )
 
         # Delegation depth check
         delegation_depth = event.context.get("delegation_depth", 0)

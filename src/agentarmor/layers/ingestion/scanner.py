@@ -17,7 +17,7 @@ ZERO_WIDTH_CHARS = {
 
 HOMOGLYPH_MAP = {
     'а': 'a', 'е': 'e', 'і': 'i', 'о': 'o',
-    'р': 'r', 'с': 'c', 'х': 'x', 'р': 'p',
+    'р': 'r', 'с': 'c', 'х': 'x',
     'ο': 'o', 'α': 'a', 'ε': 'e',
 }
 
@@ -30,10 +30,10 @@ ENCODING_PATTERNS = [
 # --- Constants for D2: Syntactic Pattern Matching ---
 L1_PATTERNS = {
     "role_override_explicit": [
-        re.compile(r"(?i)(ignore|disregard|forget|override|bypass|skip)\s+(all\s+)?(previous|prior|above|earlier|your)\s+(instructions?|prompts?|rules?|constraints?|guidelines?|directives?|system)"),
-        re.compile(r"(?i)(you are|act as|pretend to be|roleplay as|simulate being)\s+(an?\s+)?(unfiltered|unrestricted|uncensored|jailbroken|free|evil|malicious)"),
-        re.compile(r"(?i)do not\s+(follow|apply|use|obey)\s+(your|the|any)\s+(rules?|safety|guidelines?|instructions?)"),
-        re.compile(r"(?i)(new|updated|revised|actual|real|true)\s+(system\s+)?(prompt|instructions?|directives?|role)\s*:"),
+        re.compile(r"(?i)(ignore|disregard|forget|override|bypass|skip)\s+(all\s+)?(previous|prior|above|earlier|your)\s+(instructions?|prompts?|rules?|constraints?|guidelines?|directives?|system)"),  # noqa: E501
+        re.compile(r"(?i)(you are|act as|pretend to be|roleplay as|simulate being)\s+(an?\s+)?(unfiltered|unrestricted|uncensored|jailbroken|free|evil|malicious)"),  # noqa: E501
+        re.compile(r"(?i)do not\s+(follow|apply|use|obey)\s+(your|the|any)\s+(rules?|safety|guidelines?|instructions?)"),  # noqa: E501
+        re.compile(r"(?i)(new|updated|revised|actual|real|true)\s+(system\s+)?(prompt|instructions?|directives?|role)\s*:"),  # noqa: E501
         re.compile(r"(?i)your\s+(true|real|actual|original)\s+(purpose|goal|mission|function|instructions?)\s+is"),
     ],
     "delimiter_injection": [
@@ -45,7 +45,7 @@ L1_PATTERNS = {
         re.compile(r"(?i)\n{3,}(you are|your role|your purpose|ignore|disregard)"),
     ],
     "exfiltration": [
-        re.compile(r"(?i)(print|output|show|reveal|display|share|leak|dump|return|repeat|echo|copy|quote)\s+(your|the)?\s*(system\s+)?(prompt|instructions?|config|api\s+key|secret|token|password|credentials?)"),
+        re.compile(r"(?i)(print|output|show|reveal|display|share|leak|dump|return|repeat|echo|copy|quote)\s+(your|the)?\s*(system\s+)?(prompt|instructions?|config|api\s+key|secret|token|password|credentials?)"),  # noqa: E501
         re.compile(r"(?i)what\s+(are|is)\s+(your|the)\s*(system\s+)?(prompt|instructions?|configuration|rules?)"),
         re.compile(r"(?i)(exfiltrat|steal|extract|harvest)\s+(data|information|credentials?|keys?|tokens?)"),
         re.compile(r"(?i)send\s+.{0,50}(to\s+)?(http[s]?://|webhook|external|remote)"),
@@ -55,21 +55,21 @@ L1_PATTERNS = {
         re.compile(r"(?i)\sDAN\s"),
         re.compile(r"(?i)jailbreak"),
         re.compile(r"(?i)(developer|maintenance|admin|debug|god|unrestricted)\s+mode"),
-        re.compile(r"(?i)as\s+(a|an)\s+(evil|malicious|unrestricted|unaligned|uncensored)\s+(AI|assistant|model|LLM|bot|GPT)"),
-        re.compile(r"(?i)hypothetically\s+(speaking|if|assume).{0,80}(no\s+restrictions?|unlimited|unconstrained|no\s+rules?)"),
-        re.compile(r"(?i)(imagine|suppose|pretend|assume)\s+(there\s+(are|is)\s+no|you\s+have\s+no)\s+(rules?|restrictions?|guidelines?|safety|filters?)"),
-        re.compile(r"(?i)(for\s+)?(educational|research|fiction|creative|academic|hypothetical)\s+(purposes?).{0,40}(how\s+to|explain\s+how|steps\s+to)\s+(hack|exploit|bypass|attack|harm|destroy|steal)"),
+        re.compile(r"(?i)as\s+(a|an)\s+(evil|malicious|unrestricted|unaligned|uncensored)\s+(AI|assistant|model|LLM|bot|GPT)"),  # noqa: E501
+        re.compile(r"(?i)hypothetically\s+(speaking|if|assume).{0,80}(no\s+restrictions?|unlimited|unconstrained|no\s+rules?)"),  # noqa: E501
+        re.compile(r"(?i)(imagine|suppose|pretend|assume)\s+(there\s+(are|is)\s+no|you\s+have\s+no)\s+(rules?|restrictions?|guidelines?|safety|filters?)"),  # noqa: E501
+        re.compile(r"(?i)(for\s+)?(educational|research|fiction|creative|academic|hypothetical)\s+(purposes?).{0,40}(how\s+to|explain\s+how|steps\s+to)\s+(hack|exploit|bypass|attack|harm|destroy|steal)"),  # noqa: E501
     ],
     "indirect_extraction": [
         re.compile(r"(?i)translate\s+your\s+(system\s+)?prompt\s+to"),
-        re.compile(r"(?i)(summarize|paraphrase|rewrite|rephrase)\s+(your|the)\s+(system\s+)?(prompt|instructions?|rules?)"),
-        re.compile(r"(?i)what\s+(would|did|does)\s+your\s+(creator|developer|maker|openai|anthropic|mistral|meta)\s+(say|tell|instruct|define)"),
-        re.compile(r"(?i)complete\s+(this|the\s+following)\s+(sentence|text|prompt)\s*:?\s*[\"']?(you\s+are|your\s+purpose|your\s+instructions?|you\s+must)"),
-        re.compile(r"(?i)(tell|show)\s+me\s+(what\s+)?(you\s+(were|are)\s+told|your\s+(secret|hidden|real)\s+(instructions?|prompt))"),
+        re.compile(r"(?i)(summarize|paraphrase|rewrite|rephrase)\s+(your|the)\s+(system\s+)?(prompt|instructions?|rules?)"),  # noqa: E501
+        re.compile(r"(?i)what\s+(would|did|does)\s+your\s+(creator|developer|maker|openai|anthropic|mistral|meta)\s+(say|tell|instruct|define)"),  # noqa: E501
+        re.compile(r"(?i)complete\s+(this|the\s+following)\s+(sentence|text|prompt)\s*:?\s*[\"']?(you\s+are|your\s+purpose|your\s+instructions?|you\s+must)"),  # noqa: E501
+        re.compile(r"(?i)(tell|show)\s+me\s+(what\s+)?(you\s+(were|are)\s+told|your\s+(secret|hidden|real)\s+(instructions?|prompt))"),  # noqa: E501
     ],
     "tool_manipulation": [
         re.compile(r"(?i)bypass\s+(the\s+)?(tool|security|safety|layer\s+[1-8]|filter|guard|agentarmor)"),
-        re.compile(r"(?i)(directly\s+)?(access|read|write|modify|delete)\s+(the\s+)?(system|root|admin|internal|host)\s+(files?|database|config|network)"),
+        re.compile(r"(?i)(directly\s+)?(access|read|write|modify|delete)\s+(the\s+)?(system|root|admin|internal|host)\s+(files?|database|config|network)"),  # noqa: E501
         re.compile(r"(?i)(execute|run|call)\s+(arbitrary|any|all)\s+(code|command|tool|function|script)"),
         re.compile(r"(?i)disable\s+(layer|L[1-8]|security|safety|protection|guard)"),
     ],
@@ -197,6 +197,11 @@ class IngestionLayer(SecurityLayer):
             return LayerResult(layer=self.name, verdict=SecurityVerdict.ALLOW, message="Layer disabled")
 
         input_text = self._extract_text(event)
+        if len(input_text.encode()) > self.config.max_input_size_bytes:
+            return LayerResult(
+                layer=self.name, verdict=SecurityVerdict.DENY, threat_level=ThreatLevel.HIGH,
+                message=f"Input exceeds max size ({len(input_text.encode())} > {self.config.max_input_size_bytes} bytes)",
+            )
         source_context = event.metadata.get("source", "user_input")
 
         # Details struct for reporting

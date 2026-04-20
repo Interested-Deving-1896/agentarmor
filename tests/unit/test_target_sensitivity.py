@@ -1,14 +1,14 @@
 """Tests for param-aware target sensitivity scoring in L4 planning layer."""
 
 import pytest
+
 from agentarmor.core.types import AgentEvent, RiskScore
 from agentarmor.layers.planning.target_sensitivity import (
     DEFAULT_MULTIPLIER,
     compute_composite_score,
     get_target_multiplier,
 )
-from agentarmor.layers.planning.validator import CATEGORY_RISK, PlanningLayer, ActionCategory
-
+from agentarmor.layers.planning.validator import CATEGORY_RISK, ActionCategory, PlanningLayer
 
 # ============================================================
 # Unit tests for get_target_multiplier
@@ -181,7 +181,7 @@ class TestPlanningLayerCompositeScoring:
             agent_id="test", event_type="tool_call",
             action="exec.shell", params={"path": "/tmp/script.sh"},
         )
-        result = await layer.execute(event)
+        await layer.execute(event)
         assert event.metadata["composite_score"] == 4.0
 
     @pytest.mark.asyncio
