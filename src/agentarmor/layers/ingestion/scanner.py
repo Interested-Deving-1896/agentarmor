@@ -145,7 +145,7 @@ def _ensure_d3() -> Any:
             log.warning(
                 "L1 D3 (DeBERTa) unavailable — deep semantic detection disabled",
                 error=str(e),
-                hint="pip install transformers torch",
+                hint="uv pip install transformers torch",
             )
     return _d3_state["pipeline"] if _d3_state["available"] else None
 
@@ -168,7 +168,7 @@ def _ensure_d4() -> tuple[Any, Any] | None:
             log.warning(
                 "L1 D4 (GPT-2 perplexity) unavailable — perplexity detection disabled",
                 error=str(e),
-                hint="pip install transformers torch",
+                hint="uv pip install transformers torch",
             )
     if _d4_state["available"]:
         return _d4_state["model"], _d4_state["tokenizer"]

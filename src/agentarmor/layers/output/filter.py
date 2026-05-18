@@ -203,7 +203,7 @@ def _get_presidio():
                     "(narrower coverage)",
                     error=str(e),
                     hint=(
-                        "pip install 'agentarmor-core[pii]' "
+                        "uv pip install 'agentarmor-core[pii]' "
                         "and python -m spacy download en_core_web_sm"
                     ),
                 )
