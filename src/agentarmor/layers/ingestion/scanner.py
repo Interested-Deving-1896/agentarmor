@@ -1,18 +1,28 @@
 """Layer 1: Data Ingestion Security — input scanning, injection detection, source verification."""
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import re
+import time
 import unicodedata
+from pathlib import Path
+from typing import Any
+
+import structlog
+import yaml
 
 from agentarmor.core.base import SecurityLayer
 from agentarmor.core.config import IngestionConfig
 from agentarmor.core.types import AgentEvent, LayerResult, SecurityVerdict, ThreatLevel
 
+log = structlog.get_logger(__name__)
+
 # --- Constants for D1: Unicode Normalization & Content Disarm ---
 ZERO_WIDTH_CHARS = {
-    '\u200b', '\u200c', '\u200d', '\u200e', '\u200f', '\u202a', '\u202b',
-    '\u202c', '\u202d', '\u202e', '\u2060', '\u2061', '\u2062', '\u2063',
-    '\u2064', '\ufeff', '\u00ad',
+    '​', '‌', '‍', '‎', '‏', '‪', '‫',
+    '‬', '‭', '‮', '⁠', '⁡', '⁢', '⁣',
+    '⁤', '﻿', '­',
 }
 
 HOMOGLYPH_MAP = {
@@ -90,38 +100,155 @@ CATEGORY_SEVERITY = {
     "obfuscation": 6,
 }
 
-# --- Initialization of D3 (DeBERTa Prompt Injection Classifier) and D4 (GPT-2 Perplexity) ---
-# Replaced gated meta-llama/Llama-Prompt-Guard-2-22M (401 on HF) with
-# protectai/deberta-v3-base-prompt-injection-v2 — public, ungated, 600K+ pairs.
-try:
-    from transformers import pipeline as hf_pipeline
-    _pg_classifier = hf_pipeline(
-        "text-classification",
-        model="protectai/deberta-v3-base-prompt-injection-v2",
-        device=-1,
-        truncation=True,
-        max_length=512,
-    )
-    PROMPT_GUARD_AVAILABLE = True
-except Exception as e:
-    print(f"AgentArmor L1 (D3) skipped: {e}")
-    PROMPT_GUARD_AVAILABLE = False
-
 # DeBERTa label mapping: LABEL_1 = injection, LABEL_0 = safe
 _DEBERTA_LABEL_MAP = {"LABEL_1": "INJECTION", "LABEL_0": "SAFE"}
 
+# Inference timeout (seconds) for D3/D4/D5 model calls — prevents runaway hangs.
+_MODEL_TIMEOUT_S = 5.0
 
-try:
-    import torch
-    from transformers import GPT2LMHeadModel, GPT2TokenizerFast
+# Corpus + cache locations
+_CORPUS_PATH = Path(__file__).resolve().parents[2] / "data" / "jailbreak_corpus.yaml"
+_EMBED_CACHE_DIR = Path.home() / ".cache" / "agentarmor" / "embeddings"
 
-    _gpt2_model = GPT2LMHeadModel.from_pretrained("gpt2")
-    _gpt2_tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
-    _gpt2_model.eval()
-    PERPLEXITY_AVAILABLE = True
-except Exception as e:
-    print(f"AgentArmor L1 (D4) skipped: {e}")
-    PERPLEXITY_AVAILABLE = False
+# Lazy-load state for each detector. Loaded on first call, never at import time.
+_d3_state: dict[str, Any] = {"loaded": False, "available": False, "pipeline": None}
+_d4_state: dict[str, Any] = {"loaded": False, "available": False, "model": None, "tokenizer": None}
+_d5_state: dict[str, Any] = {
+    "loaded": False, "available": False,
+    "model": None, "corpus": None, "corpus_embeddings": None,
+}
+
+
+def _ensure_d3() -> Any:
+    """Lazy-load D3 (DeBERTa prompt injection classifier). Returns pipeline or None."""
+    if not _d3_state["loaded"]:
+        _d3_state["loaded"] = True
+        try:
+            from transformers import pipeline as hf_pipeline
+            pipe = hf_pipeline(
+                "text-classification",
+                model="protectai/deberta-v3-base-prompt-injection-v2",
+                device=-1,
+                truncation=True,
+                max_length=512,
+            )
+            if hasattr(pipe.model, "eval"):
+                pipe.model.eval()
+            _d3_state["pipeline"] = pipe
+            _d3_state["available"] = True
+            log.info(
+                "L1 D3 DeBERTa loaded",
+                model="protectai/deberta-v3-base-prompt-injection-v2",
+            )
+        except Exception as e:
+            _d3_state["available"] = False
+            log.warning(
+                "L1 D3 (DeBERTa) unavailable — deep semantic detection disabled",
+                error=str(e),
+                hint="pip install transformers torch",
+            )
+    return _d3_state["pipeline"] if _d3_state["available"] else None
+
+
+def _ensure_d4() -> tuple[Any, Any] | None:
+    """Lazy-load D4 (GPT-2 perplexity). Returns (model, tokenizer) or None."""
+    if not _d4_state["loaded"]:
+        _d4_state["loaded"] = True
+        try:
+            from transformers import GPT2LMHeadModel, GPT2TokenizerFast
+            model = GPT2LMHeadModel.from_pretrained("gpt2")
+            tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
+            model.eval()
+            _d4_state["model"] = model
+            _d4_state["tokenizer"] = tokenizer
+            _d4_state["available"] = True
+            log.info("L1 D4 GPT-2 perplexity loaded")
+        except Exception as e:
+            _d4_state["available"] = False
+            log.warning(
+                "L1 D4 (GPT-2 perplexity) unavailable — perplexity detection disabled",
+                error=str(e),
+                hint="pip install transformers torch",
+            )
+    if _d4_state["available"]:
+        return _d4_state["model"], _d4_state["tokenizer"]
+    return None
+
+
+def _load_jailbreak_corpus() -> list[dict[str, Any]]:
+    """Load the D5 jailbreak template corpus from YAML."""
+    try:
+        with open(_CORPUS_PATH) as f:
+            data = yaml.safe_load(f) or {}
+        templates: list[dict[str, Any]] = []
+        for category, entries in (data.get("categories") or {}).items():
+            for entry in entries:
+                if isinstance(entry, str):
+                    templates.append({"category": category, "template": entry, "severity": 8})
+                elif isinstance(entry, dict):
+                    templates.append({
+                        "category": category,
+                        "template": entry["template"],
+                        "severity": int(entry.get("severity", 8)),
+                    })
+        return templates
+    except Exception as e:
+        log.warning("D5 jailbreak corpus failed to load", path=str(_CORPUS_PATH), error=str(e))
+        return []
+
+
+def _ensure_d5() -> dict[str, Any] | None:
+    """Lazy-load D5 (sentence-transformers MiniLM + jailbreak corpus)."""
+    if not _d5_state["loaded"]:
+        _d5_state["loaded"] = True
+        try:
+            import numpy as np
+            from sentence_transformers import SentenceTransformer
+
+            corpus = _load_jailbreak_corpus()
+            if not corpus:
+                _d5_state["available"] = False
+                log.warning("L1 D5 unavailable — jailbreak corpus is empty")
+                return None
+
+            model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+
+            corpus_text = "|".join(c["template"] for c in corpus)
+            corpus_sha = hashlib.sha256(corpus_text.encode("utf-8")).hexdigest()[:16]
+            _EMBED_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            cache_file = _EMBED_CACHE_DIR / f"jailbreak_corpus_{corpus_sha}.npy"
+
+            if cache_file.exists():
+                embeddings = np.load(cache_file)
+                log.info("L1 D5 corpus embeddings loaded from cache", path=str(cache_file))
+            else:
+                embeddings = model.encode(
+                    [c["template"] for c in corpus],
+                    convert_to_numpy=True,
+                    normalize_embeddings=True,
+                )
+                np.save(cache_file, embeddings)
+                log.info(
+                    "L1 D5 corpus encoded and cached",
+                    path=str(cache_file), templates=len(corpus),
+                )
+
+            _d5_state["model"] = model
+            _d5_state["corpus"] = corpus
+            _d5_state["corpus_embeddings"] = embeddings
+            _d5_state["available"] = True
+            log.info(
+                "L1 D5 sentence-transformers loaded",
+                model="sentence-transformers/all-MiniLM-L6-v2",
+            )
+        except Exception as e:
+            _d5_state["available"] = False
+            log.warning(
+                "L1 D5 (sentence-transformers) unavailable — embedding similarity disabled",
+                error=str(e),
+                hint="sentence-transformers is a core dep; reinstall agentarmor-core",
+            )
+    return _d5_state if _d5_state["available"] else None
 
 
 def normalize_and_disarm(text: str) -> tuple[str, list[str]]:
@@ -135,9 +262,9 @@ def normalize_and_disarm(text: str) -> tuple[str, list[str]]:
         text = ''.join(c for c in text if c not in ZERO_WIDTH_CHARS)
 
     # 2. Detect RTL override (bidi attack)
-    if '\u202e' in text or '\u202d' in text:
+    if '‮' in text or '‭' in text:
         anomalies.append("bidi_override_detected")
-        text = text.replace('\u202e', '').replace('\u202d', '')
+        text = text.replace('‮', '').replace('‭', '')
 
     # 3. Normalize homoglyphs
     normalized = []
@@ -163,34 +290,124 @@ def normalize_and_disarm(text: str) -> tuple[str, list[str]]:
     return text, anomalies
 
 
-def classify_with_prompt_guard(text: str) -> tuple[str, float]:
-    """D3 protection step: Semantic analysis using DeBERTa prompt injection classifier."""
-    if not PROMPT_GUARD_AVAILABLE:
+def _classify_with_d3_sync(text: str) -> tuple[str, float]:
+    """Synchronous D3 inference."""
+    pipe = _ensure_d3()
+    if pipe is None:
         return ("UNKNOWN", 0.0)
-    result = _pg_classifier(text[:512])[0]
-    # Normalize DeBERTa labels to canonical names
+    result = pipe(text[:512])[0]
     label = _DEBERTA_LABEL_MAP.get(result["label"], result["label"])
-    return label, result["score"]
+    return label, float(result["score"])
 
 
-def compute_perplexity(text: str) -> float:
-    """D4 protection step: Detect GPT-2 perplexity for GCG suffixes."""
-    if not PERPLEXITY_AVAILABLE or len(text) < 20:
+def _compute_perplexity_sync(text: str) -> float:
+    """Synchronous D4 inference."""
+    state = _ensure_d4()
+    if state is None or len(text) < 20:
         return 0.0
-    inputs = _gpt2_tokenizer(text[:200], return_tensors="pt", truncation=True)
+    import torch
+    model, tokenizer = state
+    inputs = tokenizer(text[:200], return_tensors="pt", truncation=True)
     with torch.no_grad():
-        outputs = _gpt2_model(**inputs, labels=inputs["input_ids"])
-    return torch.exp(outputs.loss).item()
+        outputs = model(**inputs, labels=inputs["input_ids"])
+    return float(torch.exp(outputs.loss).item())
+
+
+def _embedding_similarity_sync(text: str) -> dict[str, Any] | None:
+    """Synchronous D5 embedding similarity.
+
+    Returns {max_similarity, matched_template, matched_category, severity} or None.
+    """
+    state = _ensure_d5()
+    if state is None:
+        return None
+    import numpy as np
+    model = state["model"]
+    corpus = state["corpus"]
+    corpus_emb = state["corpus_embeddings"]
+    query_emb = model.encode(
+        [text[:512]], convert_to_numpy=True, normalize_embeddings=True,
+    )[0]
+    sims = corpus_emb @ query_emb
+    idx = int(np.argmax(sims))
+    return {
+        "max_similarity": float(sims[idx]),
+        "matched_template": corpus[idx]["template"],
+        "matched_category": corpus[idx]["category"],
+        "severity": int(corpus[idx].get("severity", 8)),
+    }
+
+
+async def classify_with_prompt_guard(text: str) -> tuple[str, float]:
+    """D3 entry point: async wrapper with timeout."""
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(_classify_with_d3_sync, text),
+            timeout=_MODEL_TIMEOUT_S,
+        )
+    except TimeoutError:
+        log.warning("L1 D3 inference timed out", timeout_s=_MODEL_TIMEOUT_S)
+        return ("UNKNOWN", 0.0)
+
+
+async def compute_perplexity(text: str) -> float:
+    """D4 entry point: async wrapper with timeout."""
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(_compute_perplexity_sync, text),
+            timeout=_MODEL_TIMEOUT_S,
+        )
+    except TimeoutError:
+        log.warning("L1 D4 inference timed out", timeout_s=_MODEL_TIMEOUT_S)
+        return 0.0
+
+
+async def embedding_similarity(text: str) -> dict[str, Any] | None:
+    """D5 entry point: async wrapper with timeout."""
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(_embedding_similarity_sync, text),
+            timeout=_MODEL_TIMEOUT_S,
+        )
+    except TimeoutError:
+        log.warning("L1 D5 inference timed out", timeout_s=_MODEL_TIMEOUT_S)
+        return None
 
 
 class IngestionLayer(SecurityLayer):
     name = "L1_ingestion"
 
+    _startup_log_done = False
+
     def __init__(self, config: IngestionConfig | None = None):
         self.config = config or IngestionConfig()
+        self._log_startup_status()
+
+    def _log_startup_status(self) -> None:
+        """One-shot startup log explaining which L1 detectors are enabled."""
+        if IngestionLayer._startup_log_done:
+            return
+        IngestionLayer._startup_log_done = True
+        if self.config.embedding_similarity:
+            log.info(
+                "L1 embedding-similarity (D5) enabled — MiniLM weights (~80MB) "
+                "will download on first request"
+            )
+        else:
+            log.info("L1 embedding-similarity (D5) disabled in config")
+        if self.config.deep_semantic:
+            log.info(
+                "L1 deep-semantic (D3 DeBERTa + D4 GPT-2) enabled — "
+                "weights (~1.2GB) will download on first request, "
+                "adds ~200-500ms latency per check"
+            )
+        else:
+            log.info(
+                "L1 deep-semantic (D3 DeBERTa + D4 GPT-2) disabled by default for performance. "
+                "Enable in agentarmor.yaml [ingestion.deep_semantic=true] for maximum security."
+            )
 
     async def process(self, event: AgentEvent) -> LayerResult:
-        import time
         start_time = time.time()
 
         if not self.config.enabled:
@@ -200,13 +417,14 @@ class IngestionLayer(SecurityLayer):
         if len(input_text.encode()) > self.config.max_input_size_bytes:
             return LayerResult(
                 layer=self.name, verdict=SecurityVerdict.DENY, threat_level=ThreatLevel.HIGH,
-                message=f"Input exceeds max size ({len(input_text.encode())} > {self.config.max_input_size_bytes} bytes)",
+                message=(
+                    f"Input exceeds max size "
+                    f"({len(input_text.encode())} > {self.config.max_input_size_bytes} bytes)"
+                ),
             )
-        source_context = event.metadata.get("source", "user_input")
 
-        # Details struct for reporting
-        details = {
-            "vector": source_context,
+        details: dict[str, Any] = {
+            "vector": event.metadata.get("source", "user_input"),
             "source": event.metadata.get("agent_id", "user"),
             "defenses_applied": [],
             "anomalies_found": [],
@@ -226,8 +444,8 @@ class IngestionLayer(SecurityLayer):
         if d1_anomalies:
             threat_score += 2
 
-        # --- D2 Synactic Patterns ---
-        d2_hits = []
+        # --- D2 Syntactic Patterns ---
+        d2_hits: list[str] = []
         for category, patterns in L1_PATTERNS.items():
             for pattern in patterns:
                 match = pattern.search(normalized)
@@ -239,42 +457,70 @@ class IngestionLayer(SecurityLayer):
                         "type": "regex_match",
                         "category": category,
                         "severity": sev,
-                        "matched_text": match.group()[:100]
+                        "matched_text": match.group()[:100],
                     })
                     threat_score = max(threat_score, sev)
-                    break # one hit per category is enough
+                    break
+
         details["defenses_applied"].append("D2")
 
-        # --- D3 Semantic Classification ---
-        details["defenses_applied"].append("D3")
-        pg_label, pg_score = classify_with_prompt_guard(normalized)
-        details["classifier_label"] = pg_label
-        details["classifier_confidence"] = pg_score
+        # --- D5 Embedding Similarity (default-on, lightweight) ---
+        if self.config.embedding_similarity:
+            details["defenses_applied"].append("D5")
+            d5_result = await embedding_similarity(normalized)
+            if d5_result is not None:
+                sim = d5_result["max_similarity"]
+                details["embedding_similarity"] = sim
+                details["embedding_match_template"] = d5_result["matched_template"]
+                details["embedding_match_category"] = d5_result["matched_category"]
+                if sim >= 0.85:
+                    details["anomalies_found"].append({
+                        "type": "embedding_similarity",
+                        "category": d5_result["matched_category"],
+                        "severity": d5_result["severity"],
+                        "confidence": sim,
+                        "matched_template": d5_result["matched_template"],
+                    })
+                    threat_score = max(threat_score, d5_result["severity"])
+                elif sim >= 0.70:
+                    details["anomalies_found"].append({
+                        "type": "embedding_similarity_candidate",
+                        "category": d5_result["matched_category"],
+                        "severity": 5,
+                        "confidence": sim,
+                        "matched_template": d5_result["matched_template"],
+                    })
+                    threat_score = max(threat_score, 5)
 
-        if pg_label in ("INJECTION", "JAILBREAK"):
-            if pg_score >= 0.85:
-                # Same severity as Category D jailbreak
-                details["anomalies_found"].append({
-                    "type": "classifier_injection",
-                    "category": "jailbreak_semantic",
-                    "severity": 8,
-                    "confidence": pg_score,
-                })
-                threat_score = max(threat_score, 8)
-            elif pg_score >= 0.70:
-                # Just flags it
-                details["anomalies_found"].append({
-                    "type": "classifier_injection_candidate",
-                    "category": "jailbreak_semantic",
-                    "severity": 5,
-                    "confidence": pg_score,
-                })
-                threat_score = max(threat_score, 5)
+        # --- D3 + D4 Deep Semantic (opt-in via deep_semantic) ---
+        pg_label = "UNKNOWN"
+        if self.config.deep_semantic:
+            details["defenses_applied"].append("D3")
+            pg_label, pg_score = await classify_with_prompt_guard(normalized)
+            details["classifier_label"] = pg_label
+            details["classifier_confidence"] = pg_score
 
-        # --- D4 Perplexity Filtering (User Input Only) ---
-        if source_context == "user_input":
+            if pg_label in ("INJECTION", "JAILBREAK"):
+                if pg_score >= 0.85:
+                    details["anomalies_found"].append({
+                        "type": "classifier_injection",
+                        "category": "jailbreak_semantic",
+                        "severity": 8,
+                        "confidence": pg_score,
+                    })
+                    threat_score = max(threat_score, 8)
+                elif pg_score >= 0.70:
+                    details["anomalies_found"].append({
+                        "type": "classifier_injection_candidate",
+                        "category": "jailbreak_semantic",
+                        "severity": 5,
+                        "confidence": pg_score,
+                    })
+                    threat_score = max(threat_score, 5)
+
+            # D4 — perplexity. Same prompt -> same verdict regardless of source metadata.
             details["defenses_applied"].append("D4")
-            ppl = compute_perplexity(normalized)
+            ppl = await compute_perplexity(normalized)
             details["perplexity_score"] = ppl
             token_count = len(normalized.split())
             if ppl > 1000 and token_count < 200:
@@ -282,10 +528,9 @@ class IngestionLayer(SecurityLayer):
                     "type": "high_perplexity",
                     "category": "gcg_adversarial_suffix_candidate",
                     "severity": 7,
-                    "matched_text": "Perplexity: " + str(ppl)
+                    "matched_text": f"Perplexity: {ppl}",
                 })
-                # Only block if other trigger exists, otherwise just heavily flag
-                if d2_hits or pg_label in ["INJECTION", "JAILBREAK"]:
+                if d2_hits or pg_label in ("INJECTION", "JAILBREAK"):
                     threat_score = max(threat_score, 8)
                 else:
                     threat_score = max(threat_score, 7)
@@ -322,7 +567,7 @@ class IngestionLayer(SecurityLayer):
             verdict=verdict,
             threat_level=threat_level,
             message=msg,
-            details=details
+            details=details,
         )
 
     def _extract_text(self, event: AgentEvent) -> str:

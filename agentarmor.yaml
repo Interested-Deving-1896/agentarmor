@@ -9,6 +9,13 @@ ingestion:
   enabled: true
   scan_for_injection: true
   max_input_size_bytes: 10485760
+  # D5 — sentence-transformers MiniLM embedding similarity vs jailbreak corpus.
+  # Lightweight (~80MB), recommended default. Catches paraphrased jailbreaks.
+  embedding_similarity: true
+  # D3 (DeBERTa) + D4 (GPT-2 perplexity). Disabled by default for performance.
+  # Enable for max security; downloads ~1.2GB on first request and adds
+  # 200-500ms latency per check.
+  deep_semantic: false
 
 storage:
   enabled: true

@@ -2,6 +2,69 @@
 
 All notable changes to AgentArmor are documented in this file.
 
+## [0.7.0] — 2026-05-18
+
+### L1 Ingestion: Embedding-similarity detector (D5) + lazy ML loading
+
+- **D5 (new, on by default):** `EmbeddingSimilarityDetector` uses
+  `sentence-transformers/all-MiniLM-L6-v2` (~80MB, CPU-friendly) and a curated
+  jailbreak corpus (`src/agentarmor/data/jailbreak_corpus.yaml`, ~50 templates
+  across 6 categories) to catch paraphrased prompt injections that miss D2
+  regex. Cosine similarity ≥ 0.85 → DENY, 0.70–0.85 → AUDIT. First call
+  downloads MiniLM weights; subsequent calls use the local cache. Corpus
+  embeddings are cached to `~/.cache/agentarmor/embeddings/`.
+- **D3 (DeBERTa) + D4 (GPT-2 perplexity) now opt-in:** Off by default. Enable
+  via `agentarmor.yaml [ingestion.deep_semantic=true]` for maximum security
+  (adds ~200-500ms per check and downloads ~1.2GB on first request).
+- **Lazy model loading:** All three ML detectors load on first request, not
+  at module import. Sidecar startup is no longer blocked by model downloads.
+- **5-second timeout** on every ML inference call. Hangs no longer freeze the
+  pipeline; timed-out checks log a warning and return UNKNOWN.
+- **Loud startup logs** for every detector — no more silent degradation. When
+  a detector can't load, the warning names the missing package and how to
+  install it.
+- **Deterministic verdict:** D4 perplexity now runs the same way regardless
+  of `event.metadata["source"]`. Removes the "same prompt, different
+  verdict" non-determinism.
+- **New config keys:** `ingestion.embedding_similarity` (default `true`),
+  `ingestion.deep_semantic` (default `false`).
+
+### Pipeline progress events
+
+- `AgentArmor.process(event, progress_callback=...)` accepts an optional
+  callback `(layer_name: str, phase: str)` invoked per layer with phases
+  `start`, `complete`, `blocked`, `escalated`. Used by AgentArmor Studio to
+  stream per-layer progress to the UI.
+
+### `PipelineResult.layers_checked`
+
+- New field listing every layer that actually executed, in order. Resolves
+  a crash in the MCP server (`mcp_server/server.py:346`) which already
+  expected this field.
+
+### L6 Output
+
+- Loud startup warning when Presidio is missing — previously silently fell
+  back to regex-only PII detection with no log line.
+
+### Dependencies
+
+- Core: added `sentence-transformers>=2.7` (transitively pulls `transformers`
+  and CPU `torch`).
+- New optional model weight downloads on first L1 call: MiniLM ~80MB
+  (default), DeBERTa ~700MB (only if `deep_semantic=true`), GPT-2 ~500MB
+  (only if `deep_semantic=true`).
+
+### Tests
+
+- `tests/unit/test_l1_semantic.py` — D5 paraphrase detection, default
+  on/off behavior, graceful fallback when models unavailable,
+  source-context determinism.
+- `tests/unit/test_pipeline_progress.py` — `progress_callback` is invoked
+  per layer, survives callback exceptions, fires `blocked` event on deny.
+- `tests/unit/test_layers_checked.py` — `layers_checked` populated in
+  pipeline order, stops at the first blocker.
+
 ## [0.6.0] — 2026-04-16
 
 ### 🚀 L7 Inter-Agent Layer: Full Hardening

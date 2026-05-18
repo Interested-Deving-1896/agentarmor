@@ -15,6 +15,13 @@ class IngestionConfig(BaseModel):
     allowed_sources: list[str] = Field(default_factory=list)
     blocked_patterns: list[str] = Field(default_factory=list)
     injection_detection_model: str = "heuristic"
+    # D5: sentence-transformers MiniLM embedding similarity vs jailbreak corpus.
+    # Lightweight (~80MB), recommended default. Catches paraphrased jailbreaks.
+    embedding_similarity: bool = True
+    # D3 (DeBERTa) + D4 (GPT-2 perplexity). Disabled by default — adds
+    # 200-500ms latency per check and downloads ~1.2GB on first request.
+    # Enable for maximum security.
+    deep_semantic: bool = False
 
 
 class StorageConfig(BaseModel):

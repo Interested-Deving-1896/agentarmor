@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import functools
 import time
 from collections.abc import Callable
@@ -75,12 +76,26 @@ class AgentArmor:
         # Output layer runs separately on results
         self._output_layer = self.l6_output
 
-    async def process(self, event: AgentEvent) -> PipelineResult:
-        """Run an agent event through the full security pipeline."""
+    async def process(
+        self,
+        event: AgentEvent,
+        progress_callback: Callable[[str, str], None] | None = None,
+    ) -> PipelineResult:
+        """Run an agent event through the full security pipeline.
+
+        progress_callback: optional callable invoked as `callback(layer_name, phase)`
+            for each layer. Phases: "start", "complete", "blocked", "escalated".
+        """
         start = time.perf_counter()
         self.audit.log_event(event)
 
         pipeline_result = PipelineResult(event=event)
+
+        def _emit(name: str, phase: str) -> None:
+            if progress_callback is None:
+                return
+            with contextlib.suppress(Exception):
+                progress_callback(name, phase)
 
         # Policy engine pre-check
         policy_verdict, policy_reason = self.policy_engine.evaluate(event)
@@ -88,21 +103,26 @@ class AgentArmor:
             pipeline_result.final_verdict = SecurityVerdict.DENY
             pipeline_result.final_threat_level = ThreatLevel.HIGH
             pipeline_result.blocked_by = "policy_engine"
+            pipeline_result.layers_checked.append("policy_engine")
             pipeline_result.layer_results.append(LayerResult(
                 layer="policy_engine", verdict=SecurityVerdict.DENY,
                 threat_level=ThreatLevel.HIGH, message=policy_reason,
             ))
+            _emit("policy_engine", "blocked")
             pipeline_result.total_processing_time_ms = (time.perf_counter() - start) * 1000
             self.audit.log_pipeline_result(pipeline_result)
             return pipeline_result
 
         # Run through each layer
         for layer in self._pipeline:
+            _emit(layer.name, "start")
             result = await layer.execute(event)
             pipeline_result.layer_results.append(result)
+            pipeline_result.layers_checked.append(layer.name)
             self.audit.log_layer_result(event, result)
 
             if result.is_blocked:
+                _emit(layer.name, "blocked")
                 pipeline_result.final_verdict = SecurityVerdict.DENY
                 pipeline_result.final_threat_level = result.threat_level
                 pipeline_result.blocked_by = layer.name
@@ -111,12 +131,15 @@ class AgentArmor:
                 return pipeline_result
 
             if result.needs_approval:
+                _emit(layer.name, "escalated")
                 pipeline_result.final_verdict = SecurityVerdict.ESCALATE
                 pipeline_result.final_threat_level = result.threat_level
                 pipeline_result.blocked_by = layer.name
                 pipeline_result.total_processing_time_ms = (time.perf_counter() - start) * 1000
                 self.audit.log_pipeline_result(pipeline_result)
                 return pipeline_result
+
+            _emit(layer.name, "complete")
 
         pipeline_result.final_verdict = policy_verdict
         pipeline_result.total_processing_time_ms = (time.perf_counter() - start) * 1000

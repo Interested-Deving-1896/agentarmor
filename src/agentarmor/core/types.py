@@ -98,6 +98,7 @@ class LayerResult(BaseModel):
 class PipelineResult(BaseModel):
     event: AgentEvent
     layer_results: list[LayerResult] = Field(default_factory=list)
+    layers_checked: list[str] = Field(default_factory=list)
     final_verdict: SecurityVerdict = SecurityVerdict.ALLOW
     final_threat_level: ThreatLevel = ThreatLevel.NONE
     blocked_by: str | None = None

@@ -10,6 +10,8 @@ import hashlib
 import re
 from dataclasses import dataclass, field
 
+import structlog
+
 from agentarmor.core.base import SecurityLayer
 from agentarmor.core.config import OutputConfig
 from agentarmor.core.types import (
@@ -18,6 +20,9 @@ from agentarmor.core.types import (
     SecurityVerdict,
     ThreatLevel,
 )
+
+log = structlog.get_logger(__name__)
+_presidio_warning_done = False
 
 # =============================================================================
 # SUB-TASK A: CREDENTIAL SCANNER
@@ -173,7 +178,7 @@ class FallbackPIIRedactor:
         return text, findings
 
 def _get_presidio():
-    global _presidio_analyzer, _presidio_anonymizer
+    global _presidio_analyzer, _presidio_anonymizer, _presidio_warning_done
     if _presidio_analyzer is None:
         try:
             from presidio_analyzer import AnalyzerEngine
@@ -189,8 +194,19 @@ def _get_presidio():
             nlp_engine = provider.create_engine()
             _presidio_analyzer = AnalyzerEngine(nlp_engine=nlp_engine)
             _presidio_anonymizer = AnonymizerEngine()
-        except ImportError:
-            pass
+            log.info("L6 Presidio loaded — full PII detection enabled")
+        except Exception as e:
+            if not _presidio_warning_done:
+                _presidio_warning_done = True
+                log.warning(
+                    "L6 Presidio unavailable — falling back to regex-only PII detection "
+                    "(narrower coverage)",
+                    error=str(e),
+                    hint=(
+                        "pip install 'agentarmor-core[pii]' "
+                        "and python -m spacy download en_core_web_sm"
+                    ),
+                )
     return _presidio_analyzer, _presidio_anonymizer
 
 def scan_pii(text: str, enabled_entities: list[str] | None = None) -> tuple[str, list[dict]]:
